@@ -13,8 +13,7 @@ export function hashOtp(otp: string, salt: string): string {
 }
 
 export function makeOtpSalt(identifier: string): string {
-  const minute = Math.floor(Date.now() / 60000)
-  return identifier + minute
+  return identifier
 }
 
 export async function checkRateLimit(mobile: string): Promise<boolean> {
