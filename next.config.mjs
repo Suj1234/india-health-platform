@@ -8,8 +8,9 @@ const nextConfig = {
       },
     ],
   },
-  // Prevent pdf-lib and PGlite WASM from being bundled — load them as native Node modules
-  serverExternalPackages: ['pdf-lib', '@electric-sql/pglite'],
+  experimental: {
+    serverComponentsExternalPackages: ['pdf-lib', '@electric-sql/pglite'],
+  },
 }
 
 export default nextConfig
