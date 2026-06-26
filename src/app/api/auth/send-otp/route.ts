@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       console.error('[send-otp] SMS failed:', smsErr)
     }
 
-    const exposeDebugOtp = process.env.NODE_ENV !== 'production' && process.env.APP_EXPOSE_TEST_OTP === 'true'
+    const exposeDebugOtp = process.env.APP_EXPOSE_TEST_OTP === 'true'
 
     if (!smsSent) {
       // In dev/test: log OTP to console so developer can test
