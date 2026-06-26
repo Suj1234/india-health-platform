@@ -86,12 +86,12 @@ export async function POST(req: NextRequest) {
         riders: riderDetails as unknown as Record<string, unknown>[],
         isSelected: true,
       })
-      .returning({ id: quotes.id })
+      .returning()
 
     await db
       .update(applications)
       .set({
-        selectedQuoteId: inserted.id,
+        selectedQuoteId: inserted!.id,
         finalPremium: total_premium.toString(),
         status: 'quote_selected',
         currentStep: 5,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      quote_id: inserted.id,
+      quote_id: inserted!.id,
       final_premium: total_premium,
       payment_frequency,
       next_step: 5,
