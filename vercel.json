@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/policy/**": { "maxDuration": 30 },
+    "api/payment/**": { "maxDuration": 30 },
+    "api/journey/stp/**": { "maxDuration": 30 }
+  }
+}

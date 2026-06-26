@@ -1,0 +1,251 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── CareShield India Default Theme ── */
+    /* Insurer CSS variables injected here when branding is applied */
+    --primary: 184 76% 21%;          /* #0D5C63 Deep Teal */
+    --primary-foreground: 0 0% 100%;
+
+    --accent: 18 87% 65%;            /* #F4845F Warm Orange */
+    --accent-foreground: 0 0% 100%;
+
+    --background: 210 20% 98%;       /* #F8FAFB Very light cool gray */
+    --foreground: 222 47% 14%;       /* #1A1F2E Dark blue-gray */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 14%;
+
+    --secondary: 210 16% 94%;        /* Light gray */
+    --secondary-foreground: 222 47% 25%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%; /* Slate 500-ish */
+
+    --destructive: 0 84% 60%;        /* Red */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;           /* Subtle border */
+    --input: 214 32% 91%;
+    --ring: 184 76% 21%;
+
+    --radius: 0.75rem;
+
+    /* ── Brand-specific (swapped per insurer) ── */
+    --color-primary: #0D5C63;
+    --color-accent: #F4845F;
+    --color-primary-light: #E6F3F4;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" auto;
+  }
+
+  /* Form elements base */
+  input, textarea, select {
+    @apply outline-none;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  /* ── Card system ── */
+  .card {
+    @apply bg-card rounded-xl border border-border shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  /* ── Form field wrapper ── */
+  .field-group {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .field-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  .field-hint {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .field-error {
+    @apply text-xs text-destructive font-medium;
+  }
+
+  /* ── Input base ── */
+  .input-base {
+    @apply w-full rounded-lg border border-input bg-white px-3.5 py-2.5 text-sm text-foreground
+    placeholder:text-muted-foreground/60
+    focus:border-primary-800 focus:ring-2 focus:ring-primary-800/15
+    disabled:cursor-not-allowed disabled:opacity-50
+    transition-all duration-150;
+  }
+
+  .input-error {
+    @apply border-destructive focus:border-destructive focus:ring-destructive/15;
+  }
+
+  /* ── Button variants ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-primary-800 px-5 py-2.5
+    text-sm font-semibold text-white shadow-sm
+    hover:bg-primary-900 active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800 focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+    transition-all duration-150;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5
+    text-sm font-semibold text-white shadow-sm
+    hover:bg-accent-600 active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+    transition-all duration-150;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-2.5
+    text-sm font-semibold text-secondary-foreground
+    hover:bg-secondary/80 active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed
+    transition-all duration-150;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-5 py-2.5
+    text-sm font-semibold text-foreground
+    hover:bg-secondary/50 active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed
+    transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2
+    text-sm font-medium text-muted-foreground
+    hover:bg-secondary hover:text-foreground active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed
+    transition-all duration-150;
+  }
+
+  /* ── Status badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-success-50 text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-50 text-warning;
+  }
+
+  .badge-error {
+    @apply badge bg-destructive/10 text-destructive;
+  }
+
+  .badge-info {
+    @apply badge bg-primary-50 text-primary-800;
+  }
+
+  .badge-neutral {
+    @apply badge bg-secondary text-muted-foreground;
+  }
+
+  /* ── Journey step card ── */
+  .step-card {
+    @apply card max-w-xl w-full mx-auto p-6 sm:p-8 animate-slide-up;
+  }
+
+  /* ── Section heading ── */
+  .section-heading {
+    @apply text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    @apply border-t border-border my-4;
+  }
+
+  /* ── Skeleton ── */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded-md;
+  }
+
+  /* ── Focus ring ── */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-800 focus-visible:ring-offset-2;
+  }
+}
+
+@layer utilities {
+  /* ── Text gradient ── */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-800 to-primary-600 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-to-r from-accent-600 to-accent-400 bg-clip-text text-transparent;
+  }
+
+  /* ── Safe area for mobile ── */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ── Scrollbar styling ── */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  /* ── Print ── */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+}
