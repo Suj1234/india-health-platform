@@ -229,7 +229,7 @@ export default function PolicyPage() {
                         <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div>
                           <p className="text-[10px] text-muted-foreground">PDF sent to</p>
-                          <p className="text-xs font-medium text-foreground truncate max-w-[120px]">
+                          <p className="text-xs font-medium text-foreground break-all">
                             {policy.email || 'your email'}
                           </p>
                         </div>
