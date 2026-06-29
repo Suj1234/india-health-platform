@@ -88,6 +88,14 @@ export async function POST(req: NextRequest) {
     const totalPremium = basePremium + gstAmt
 
     // Generate policy PDF
+    const cloudinaryReady = !!(
+      process.env.CLOUDINARY_API_KEY?.length &&
+      process.env.CLOUDINARY_API_SECRET?.length &&
+      process.env.CLOUDINARY_CLOUD_NAME?.length &&
+      !process.env.CLOUDINARY_API_KEY.includes('REPLACE')
+    )
+    console.log(`[payment/verify] Cloudinary configured: ${cloudinaryReady} | cloud: ${process.env.CLOUDINARY_CLOUD_NAME ?? 'MISSING'}`)
+
     let policyDocumentUrl = ''
     try {
       const pdfBytes = await generatePolicyPdf({
@@ -126,8 +134,9 @@ export async function POST(req: NextRequest) {
         policyNumber,
       })
       policyDocumentUrl = uploadResult.secure_url
+      console.log(`[payment/verify] Policy PDF uploaded — public_id: ${uploadResult.public_id} | url: ${policyDocumentUrl}`)
     } catch (pdfErr) {
-      console.error('[payment/verify] PDF generation failed:', pdfErr)
+      console.error('[payment/verify] PDF generation/upload failed:', pdfErr)
     }
 
     const [policy] = await db
