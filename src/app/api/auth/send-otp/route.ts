@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
             mockFn: () => mockKarzaMobileOtpSend({ mobile }),
           })
 
+          console.log('[send-otp] Karza /mobile/otp response:', JSON.stringify(karzaResult))
+
           if (karzaResult['status-code'] === '101' && karzaResult.request_id) {
             const otpRefId = await storeOtp({
               mobile,
