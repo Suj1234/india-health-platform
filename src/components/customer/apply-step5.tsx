@@ -20,18 +20,91 @@ const SUB_STEPS = [
   { key: 'confirm', label: 'Confirm' },
 ]
 
-const MOCK_APP = {
-  name: 'Rahul Sharma',
-  dob: '15 May 1990',
-  gender: 'Male',
-  pan: 'ABC*****4H',
-  mobile: '+91 98765 43210',
-  email: 'rahul.s@email.com',
-  address: '12, MG Road, Koramangala, Mumbai – 400050',
-  occupation: 'Salaried · Tech Corp Pvt Ltd',
-  plan: 'Standard Care · ₹5 L cover',
-  premium: '₹4,200/year (₹350/month)',
-  riders: 'Critical Illness',
+interface ProposalAddress {
+  line1: string
+  city: string
+  state: string
+  pincode: string
+}
+
+interface ProposalReview {
+  cover_type: string
+  proposer: {
+    name: string | null
+    dob: string | null
+    gender: string | null
+    pan: string | null
+    mobile: string
+    email: string | null
+    address: ProposalAddress | null
+    occupation_type: string | null
+    employer_name: string | null
+  }
+  quote: {
+    plan_name: string
+    sum_insured: number
+    total_premium: number
+    selected_riders: string[]
+  } | null
+}
+
+const RIDER_NAMES: Record<string, string> = {
+  CI: 'Critical Illness',
+  PA: 'Personal Accident',
+  PWB: 'Premium Waiver Benefit',
+  HDC: 'Hospital Daily Cash',
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function maskPan(pan: string | null): string {
+  if (!pan || pan.length < 10) return '—'
+  return pan.slice(0, 3) + '*'.repeat(5) + pan.slice(8)
+}
+
+function fmtDob(dob: string | null): string {
+  if (!dob) return '—'
+  const [y, m, d] = dob.split('-')
+  const month = MONTHS[parseInt(m ?? '0') - 1]
+  return month ? `${parseInt(d ?? '0')} ${month} ${y}` : dob
+}
+
+function fmtGender(g: string | null): string {
+  if (!g) return '—'
+  return g.charAt(0).toUpperCase() + g.slice(1)
+}
+
+function fmtAddress(addr: ProposalAddress | null): string {
+  if (!addr) return '—'
+  return `${addr.line1}, ${addr.city}, ${addr.state} – ${addr.pincode}`
+}
+
+function fmtOccupation(type: string | null, employer: string | null): string {
+  const label = type ? type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ') : null
+  return [label, employer].filter(Boolean).join(' · ') || '—'
+}
+
+function fmtSI(si: number): string {
+  if (si >= 10000000) return `₹${(si / 10000000).toFixed(0)} Cr`
+  if (si >= 100000) return `₹${si / 100000} L`
+  return `₹${(si / 1000).toFixed(0)}K`
+}
+
+function fmtPlanTitle(name: string | null | undefined, si: number | null | undefined): string {
+  if (!name) return '—'
+  return si ? `${name} · ${fmtSI(si)} cover` : name
+}
+
+function fmtPremium(total: number | null | undefined): string {
+  if (!total) return '—'
+  const annual = Math.round(total).toLocaleString('en-IN')
+  const monthly = Math.round(total / 12).toLocaleString('en-IN')
+  return `₹${annual}/year (₹${monthly}/month)`
+}
+
+function fmtRiders(codes: string[] | null | undefined): string {
+  if (!codes || codes.length === 0) return 'None'
+  return codes.map((c) => RIDER_NAMES[c] ?? c).join(', ')
 }
 
 const RELATIONS = [
@@ -47,11 +120,17 @@ export function ApplyStep5() {
   const [completedSubs, setCompletedSubs] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [coverType, setCoverType] = useState<string | null>(null)
+  const [review, setReview] = useState<ProposalReview | null>(null)
 
   useEffect(() => {
-    fetch('/api/journey/members')
+    fetch('/api/journey/proposal')
       .then((r) => r.json())
-      .then((d) => { if (d.success) setCoverType(d.cover_type) })
+      .then((d) => {
+        if (d.success) {
+          setReview(d as ProposalReview)
+          setCoverType(d.cover_type)
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -141,19 +220,19 @@ export function ApplyStep5() {
                       icon: User,
                       title: 'Personal Details',
                       items: [
-                        { label: 'Name', value: MOCK_APP.name },
-                        { label: 'Date of Birth', value: MOCK_APP.dob },
-                        { label: 'Gender', value: MOCK_APP.gender },
-                        { label: 'PAN', value: MOCK_APP.pan },
+                        { label: 'Name', value: review?.proposer.name ?? '—' },
+                        { label: 'Date of Birth', value: fmtDob(review?.proposer.dob ?? null) },
+                        { label: 'Gender', value: fmtGender(review?.proposer.gender ?? null) },
+                        { label: 'PAN', value: maskPan(review?.proposer.pan ?? null) },
                       ],
                     },
                     {
                       icon: MapPin,
                       title: 'Contact & Address',
                       items: [
-                        { label: 'Mobile', value: MOCK_APP.mobile },
-                        { label: 'Email', value: MOCK_APP.email },
-                        { label: 'Address', value: MOCK_APP.address },
+                        { label: 'Mobile', value: review?.proposer.mobile ?? '—' },
+                        { label: 'Email', value: review?.proposer.email ?? '—' },
+                        { label: 'Address', value: fmtAddress(review?.proposer.address ?? null) },
                       ],
                     },
                   ].map(({ icon: Icon, title, items }) => (
@@ -179,15 +258,17 @@ export function ApplyStep5() {
                     {
                       icon: Briefcase,
                       title: 'Employment',
-                      items: [{ label: 'Occupation', value: MOCK_APP.occupation }],
+                      items: [
+                        { label: 'Occupation', value: fmtOccupation(review?.proposer.occupation_type ?? null, review?.proposer.employer_name ?? null) },
+                      ],
                     },
                     {
                       icon: Shield,
                       title: 'Selected Plan',
                       items: [
-                        { label: 'Plan', value: MOCK_APP.plan },
-                        { label: 'Premium', value: MOCK_APP.premium },
-                        { label: 'Add-ons', value: MOCK_APP.riders },
+                        { label: 'Plan', value: fmtPlanTitle(review?.quote?.plan_name, review?.quote?.sum_insured) },
+                        { label: 'Premium', value: fmtPremium(review?.quote?.total_premium) },
+                        { label: 'Add-ons', value: fmtRiders(review?.quote?.selected_riders) },
                       ],
                     },
                   ].map(({ icon: Icon, title, items }) => (
@@ -315,9 +396,9 @@ export function ApplyStep5() {
                   <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-3">Proposal Summary</p>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2.5">
                     {[
-                      { label: 'Plan', value: MOCK_APP.plan },
-                      { label: 'Premium', value: MOCK_APP.premium },
-                      { label: 'Add-ons', value: MOCK_APP.riders },
+                      { label: 'Plan', value: fmtPlanTitle(review?.quote?.plan_name, review?.quote?.sum_insured) },
+                      { label: 'Premium', value: fmtPremium(review?.quote?.total_premium) },
+                      { label: 'Add-ons', value: fmtRiders(review?.quote?.selected_riders) },
                       { label: 'Nominee', value: `${nomineeName} (${nomineeRelation})` },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex items-start justify-between gap-3">
