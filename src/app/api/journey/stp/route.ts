@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const [app] = await db.select().from(applications).where(eq(applications.id, session.application_id)).limit(1)
     if (!app) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
 
-    if (!['biometrics_done', 'docs_uploaded'].includes(app.status)) {
+    if (!['proposal_submitted', 'docs_uploaded'].includes(app.status)) {
       return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 409 })
     }
 
