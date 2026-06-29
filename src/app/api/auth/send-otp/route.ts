@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateOtp, storeOtp, checkRateLimit } from '@/lib/otp'
-import { sendOtpSms } from '@/lib/brevo'
-import { callExternalAPI, getInsurerBySlug } from '@/lib/api-router'
-import { sendMobileOtp } from '@/lib/external/karza'
-import { mockKarzaMobileOtpSend } from '@/lib/mock/karza.mock'
-import type { KarzaCredentials } from '@/types/insurer'
+import { sendOtpViaMSG91 } from '@/lib/external/msg91'
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, 'Invalid mobile number'),
@@ -25,9 +21,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { mobile, insurer_slug, purpose, application_id } = parsed.data
+    const { mobile, purpose, application_id } = parsed.data
 
-    // Rate limit check
     const allowed = await checkRateLimit(mobile)
     if (!allowed) {
       return NextResponse.json(
@@ -36,73 +31,28 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const exposeDebugOtp = process.env.APP_EXPOSE_TEST_OTP === 'true'
-
-    // ── Karza Mobile OTP path (mobile_verification only) ─────────────────────
-    if (purpose === 'mobile_verification') {
-      const insurer = await getInsurerBySlug(insurer_slug)
-
-      if (insurer) {
-        const karzaCreds: KarzaCredentials = {
-          base_url: process.env.KARZA_BASE_URL ?? 'https://testapi.karza.in',
-          api_key: process.env.KARZA_API_KEY ?? '',
-        }
-
-        try {
-          const karzaResult = await callExternalAPI({
-            insurerId: insurer.id,
-            apiName: 'karza_mobile_otp',
-            realFn: () => sendMobileOtp(karzaCreds, { mobile }),
-            mockFn: () => mockKarzaMobileOtpSend({ mobile }),
-          })
-
-          console.log('[send-otp] Karza /mobile/otp response:', JSON.stringify(karzaResult))
-
-          if (karzaResult['status-code'] === '101' && karzaResult.request_id) {
-            const otpRefId = await storeOtp({
-              mobile,
-              otp: '',
-              purpose,
-              applicationId: application_id,
-              karzaRequestId: karzaResult.request_id,
-            })
-
-            return NextResponse.json({
-              success: true,
-              message: 'OTP sent',
-              otp_ref_id: otpRefId,
-              expires_in_seconds: 300,
-              // No debug_otp for Karza path — Karza delivers the real OTP via SMS
-            })
-          }
-        } catch (karzaErr) {
-          console.error('[send-otp] Karza mobile OTP failed, falling back to internal:', karzaErr)
-          // Fall through to internal OTP path below
-        }
-      }
-    }
-
-    // ── Internal OTP path (payment_authorization, or Karza fallback) ──────────
     const otp = generateOtp()
     const otpRefId = await storeOtp({ mobile, otp, purpose, applicationId: application_id })
 
     let smsSent = false
     try {
-      smsSent = await sendOtpSms(mobile, otp, 'CareShield Insurance')
+      smsSent = await sendOtpViaMSG91(mobile, otp)
     } catch (smsErr) {
-      console.error('[send-otp] SMS failed:', smsErr)
+      console.error('[send-otp] MSG91 failed:', smsErr)
     }
 
-    if (!smsSent && process.env.NODE_ENV !== 'production') {
-      console.log(`[DEV OTP] ${mobile} → ${otp}`)
+    if (!smsSent) {
+      console.log(`[send-otp] MSG91 unavailable for ${mobile} — using mock path`)
     }
+
+    const exposeDebugOtp = process.env.APP_EXPOSE_TEST_OTP === 'true'
 
     return NextResponse.json({
       success: true,
       message: 'OTP sent',
       otp_ref_id: otpRefId,
       expires_in_seconds: 600,
-      ...(exposeDebugOtp ? { debug_otp: otp } : {}),
+      ...(!smsSent || exposeDebugOtp ? { debug_otp: otp } : {}),
     })
   } catch (err) {
     console.error('[send-otp] Unexpected error:', err)
