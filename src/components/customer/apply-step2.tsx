@@ -357,14 +357,14 @@ export function ApplyStep2() {
     <JourneyShell currentStep={2}>
       <AnimatePresence mode="wait">
 
-        {/* ── Loading ───────────────────────────────────────────────────────── */}
-        {contentPhase === 'loading' && (
+        {/* ── Loading / Polling — shared full-height spinner ────────────────── */}
+        {(contentPhase === 'loading' || contentPhase === 'polling') && (
           <motion.div
-            key="loading"
+            key={contentPhase}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
+            className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center"
           >
             <div className="relative mb-5">
               <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center">
@@ -372,28 +372,12 @@ export function ApplyStep2() {
               </div>
               <div className="absolute inset-0 rounded-2xl border-4 border-primary-100 border-t-primary-700 animate-spin" />
             </div>
-            <h2 className="text-lg font-bold text-foreground mb-1">Fetching your profile…</h2>
-            <p className="text-sm text-muted-foreground">This takes just a second</p>
-          </motion.div>
-        )}
-
-        {/* ── Polling (live mode — waiting for iAdore job) ──────────────────── */}
-        {contentPhase === 'polling' && (
-          <motion.div
-            key="polling"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
-            <div className="relative mb-5">
-              <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center">
-                <CreditCard className="h-7 w-7 text-primary-600" strokeWidth={1.5} />
-              </div>
-              <div className="absolute inset-0 rounded-2xl border-4 border-primary-100 border-t-primary-700 animate-spin" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground mb-1">Verifying your identity…</h2>
-            <p className="text-sm text-muted-foreground">Looking up your details via mobile. Usually takes 20–30 seconds.</p>
+            <h2 className="text-lg font-bold text-foreground mb-1">Fetching your details…</h2>
+            <p className="text-sm text-muted-foreground">
+              {contentPhase === 'polling'
+                ? 'This usually takes 20–30 seconds.'
+                : 'Just a moment…'}
+            </p>
           </motion.div>
         )}
 
