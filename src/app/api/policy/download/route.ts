@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { applications, policies } from '@/lib/db/schema'
+import { applications, policies, quotes } from '@/lib/db/schema'
 import { getCustomerSession } from '@/lib/auth'
+import { generatePolicyPdf } from '@/lib/pdf'
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,25 +28,49 @@ export async function GET(req: NextRequest) {
 
     if (!policy) return new NextResponse('Policy not found', { status: 404 })
 
-    const cloudinaryUrl = policy.policyDocumentUrl
-    if (!cloudinaryUrl || cloudinaryUrl.includes('mock-cloudinary.local')) {
-      console.warn('[policy/download] No real PDF URL for policy:', policy.policyNumber)
-      return new NextResponse('PDF not available', { status: 404 })
-    }
+    const [selectedQuote] = await db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.applicationId, session.application_id))
+      .limit(1)
 
-    // Fetch PDF server-side from Cloudinary — avoids all CORS / cross-origin download issues
-    const upstream = await fetch(cloudinaryUrl)
-    if (!upstream.ok) {
-      console.error('[policy/download] Cloudinary fetch failed:', upstream.status, cloudinaryUrl)
-      return new NextResponse('Failed to fetch PDF', { status: 502 })
-    }
+    const proposalData = app.proposalData as { nominee_name?: string; nominee_relation?: string } | null
 
-    const pdfBuffer = await upstream.arrayBuffer()
+    // Regenerate PDF fresh from DB — avoids Cloudinary access/auth issues entirely
+    const pdfBuffer = await generatePolicyPdf({
+      policyNumber: policy.policyNumber,
+      planName: policy.planName ?? selectedQuote?.planName ?? 'CareShield Health',
+      planCode: policy.planCode ?? selectedQuote?.planCode ?? '',
+      sumInsured: Number(policy.sumInsured),
+      basePremium: Number(policy.basePremium),
+      loadingPercent: app.uwLoadingPercent ? Number(app.uwLoadingPercent) : undefined,
+      loadingAmount: app.uwLoadingAmount ? Number(app.uwLoadingAmount) : undefined,
+      finalPremium: Number(policy.finalPremium),
+      gstAmount: Number(policy.gstAmount),
+      totalPremiumPaid: Number(policy.totalPremiumPaid),
+      policyStartDate: new Date(policy.policyStartDate!).toLocaleDateString('en-IN'),
+      policyEndDate: new Date(policy.policyEndDate!).toLocaleDateString('en-IN'),
+      insuredName: policy.insuredName ?? app.name ?? '',
+      insuredDob: policy.insuredDob ?? app.dob ?? '',
+      insuredPan: policy.insuredPan ?? app.pan ?? '',
+      nomineeName: policy.nomineeName ?? proposalData?.nominee_name ?? '',
+      nomineeRelation: policy.nomineeRelation ?? proposalData?.nominee_relation ?? '',
+      exclusions: [],
+      insurerName: 'CareShield Insurance Ltd.',
+      irdaiRegistration: 'IRDAI/HLT/142/2026',
+      gstin: '27AAACT1234F1Z5',
+      registeredOffice: 'CareShield Tower, BKC, Mumbai 400051',
+      grievanceEmail: 'grievance@careshield.in',
+      grievancePhone: '1800-123-4567',
+      contactPhone: '1800-123-4567',
+      contactEmail: 'support@careshield.in',
+      freeLookDays: 15,
+    })
+
     const filename = `${policy.policyNumber}.pdf`
+    console.log('[policy/download] Generated PDF:', filename, `(${pdfBuffer.byteLength} bytes)`)
 
-    console.log('[policy/download] Serving PDF:', filename, `(${pdfBuffer.byteLength} bytes)`)
-
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
