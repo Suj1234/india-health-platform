@@ -276,10 +276,10 @@ export function parseIAdoreResponse(raw: IAdoreFullResponse, mobile: string): IA
 // ─── Mock for consolidatedProcess (Step 2 prefill) ───────────────────────────
 
 // Mock PANs and genders paired to MOCK_PROFILES by index
-const MOCK_CP_EXTRAS = [
-  { pan: 'ABCRS1234H', gender: 'male' as const,   hazardous_occupation: null },
-  { pan: 'FGHPP5678P', gender: 'female' as const, hazardous_occupation: 'Mining' },
-  { pan: 'KLMAN9012N', gender: 'male' as const,   hazardous_occupation: null },
+const MOCK_CP_EXTRAS: Array<{ pan: string; gender: 'male' | 'female'; hazardous_occupation: string | null }> = [
+  { pan: 'ABCRS1234H', gender: 'male',   hazardous_occupation: null },
+  { pan: 'FGHPP5678P', gender: 'female', hazardous_occupation: 'Mining' },
+  { pan: 'KLMAN9012N', gender: 'male',   hazardous_occupation: null },
 ]
 
 function ddmmyyyyToIso(dob: string): string {
