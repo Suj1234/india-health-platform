@@ -96,7 +96,7 @@ export async function uploadPolicyPdf({
   policyNumber: string
 }): Promise<UploadResult> {
   const folder = `${FOLDER}/${insurerSlug}/policies`
-  const publicId = `${folder}/${policyNumber}`
+  const publicId = `${folder}/${policyNumber}.pdf`
 
   if (!isCloudinaryConfigured()) {
     return mockUploadResult(publicId, 'application/pdf')
