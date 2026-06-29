@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, Check, Camera, Activity, Heart,
   Wind, Droplets, Zap, Thermometer,
+  AlertTriangle, FlaskConical, Brain, Gauge, BarChart2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -91,6 +92,11 @@ function stressLabel(index: number | null): string {
   if (index < 34) return 'Low'
   if (index < 67) return 'Moderate'
   return 'High'
+}
+
+function rawVal(raw: Record<string, unknown>, key: string): number | null {
+  const field = raw[key] as { value?: number } | undefined
+  return field?.value ?? null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1404,16 +1410,17 @@ export function ApplyStep3() {
                       </div>
                     </div>
                   </div>
-                  <div className="px-8 py-6">
+                  {/* ── Vitals Summary ── */}
+                  <div className="px-8 py-6 border-b border-border">
                     <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Vitals Summary</p>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { icon: Heart,       label: 'Heart Rate',     value: realVitals.heart_rate     ? `${realVitals.heart_rate} bpm`      : 'N/A' },
-                        { icon: Wind,        label: 'Respiratory',    value: realVitals.respiratory_rate ? `${realVitals.respiratory_rate}/min` : 'N/A' },
-                        { icon: Droplets,    label: 'SpO₂',           value: realVitals.oxygen_saturation ? `${realVitals.oxygen_saturation}%`  : 'N/A' },
-                        { icon: Activity,    label: 'Blood Pressure', value: (realVitals.blood_pressure_systolic && realVitals.blood_pressure_diastolic) ? `${realVitals.blood_pressure_systolic}/${realVitals.blood_pressure_diastolic}` : 'N/A' },
-                        { icon: Zap,         label: 'Stress',         value: stressLabel(realVitals.stress_index) },
-                        { icon: Thermometer, label: 'Wellness',       value: realVitals.wellness_index  ? `${realVitals.wellness_index}/100`   : 'N/A' },
+                        { icon: Heart,        label: 'Heart Rate',     value: realVitals.heart_rate       ? `${realVitals.heart_rate} bpm`   : 'N/A' },
+                        { icon: Wind,         label: 'Respiratory',    value: realVitals.respiratory_rate ? `${realVitals.respiratory_rate}/min` : 'N/A' },
+                        { icon: Activity,     label: 'Blood Pressure', value: (realVitals.blood_pressure_systolic && realVitals.blood_pressure_diastolic) ? `${realVitals.blood_pressure_systolic}/${realVitals.blood_pressure_diastolic}` : 'N/A' },
+                        { icon: Zap,          label: 'Stress',         value: stressLabel(realVitals.stress_index) },
+                        { icon: Thermometer,  label: 'Wellness',       value: realVitals.wellness_index   ? `${realVitals.wellness_index}/10` : 'N/A' },
+                        { icon: FlaskConical, label: 'Haemoglobin',    value: rawVal(realVitals.raw, 'hemoglobin') !== null ? `${rawVal(realVitals.raw, 'hemoglobin')} g/dL` : 'N/A' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40">
                           <Icon className="h-4 w-4 text-primary-700 shrink-0" />
@@ -1423,6 +1430,64 @@ export function ApplyStep3() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* ── Underwriter Summary ── */}
+                  <div className="px-8 py-6">
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Underwriter Summary</p>
+
+                    {/* Clinical markers */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { icon: FlaskConical, label: 'HbA1c',         rawKey: 'hemoglobinA1c',         fmt: (v: number) => `${v}%` },
+                        { icon: Brain,        label: 'Norm. Stress',  rawKey: 'normalizedStressIndex', fmt: (v: number) => `${v}/100` },
+                        { icon: Gauge,        label: 'MAP',            rawKey: 'meanArterialPressure',  fmt: (v: number) => `${v} mmHg` },
+                        { icon: Gauge,        label: 'Pulse Pressure', rawKey: 'pulsePressure',         fmt: (v: number) => `${v} mmHg` },
+                        { icon: Activity,     label: 'Cardiac Load',   rawKey: 'cardiacWorkload',       fmt: (v: number) => `${v}` },
+                        { icon: BarChart2,    label: 'SDNN',           rawKey: 'sdnn',                  fmt: (v: number) => `${v} ms` },
+                        { icon: BarChart2,    label: 'RMSSD',          rawKey: 'rmssd',                 fmt: (v: number) => `${v} ms` },
+                        { icon: Zap,          label: 'SNS Index',      rawKey: 'snsIndex',              fmt: (v: number) => `${v}` },
+                        { icon: Zap,          label: 'PNS Index',      rawKey: 'pnsIndex',              fmt: (v: number) => `${v}` },
+                      ].map(({ icon: Icon, label, rawKey, fmt }) => {
+                        const v = rawVal(realVitals.raw, rawKey)
+                        return (
+                          <div key={label} className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50">
+                            <Icon className="h-4 w-4 text-slate-500 shrink-0" />
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">{label}</p>
+                              <p className="text-sm font-semibold text-foreground">{v !== null ? fmt(v) : 'N/A'}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Risk flags */}
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-3 mt-5">Risk Flags</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'High Blood Pressure',  rawKey: 'highBloodPressureRisk' },
+                        { label: 'Low Haemoglobin',      rawKey: 'lowHemoglobinRisk' },
+                        { label: 'High HbA1c',           rawKey: 'highHemoglobinA1CRisk' },
+                        { label: 'High Fasting Glucose', rawKey: 'highFastingGlucoseRisk' },
+                        { label: 'High Cholesterol',     rawKey: 'highTotalCholesterolRisk' },
+                      ].map(({ label, rawKey }) => {
+                        const val = rawVal(realVitals.raw, rawKey)
+                        const flagged = val !== null && val > 0
+                        return (
+                          <div key={label} className={cn(
+                            'flex items-center gap-2 px-3 py-2.5 rounded-xl',
+                            flagged ? 'bg-red-50' : 'bg-emerald-50',
+                          )}>
+                            <AlertTriangle className={cn('h-3.5 w-3.5 shrink-0', flagged ? 'text-red-500' : 'text-emerald-500')} />
+                            <span className={cn('text-xs flex-1', flagged ? 'text-red-700' : 'text-emerald-700')}>{label}</span>
+                            <span className={cn('text-xs font-bold', flagged ? 'text-red-700' : 'text-emerald-700')}>
+                              {val === null ? 'N/A' : val === 0 ? 'Clear' : val === 1 ? 'Flagged' : `Sev. ${val}`}
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
