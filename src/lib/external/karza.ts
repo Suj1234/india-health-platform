@@ -72,6 +72,93 @@ export async function submitOcrDocument(
   })
 }
 
+// ── Karza Mobile OTP types ───────────────────────────────────────────────────
+
+export interface KarzaMobileOtpResponse {
+  'status-code': string
+  request_id: string
+  result: object
+  message?: string
+  clientData?: { caseId?: string }
+}
+
+export interface KarzaMobileStatusResponse {
+  'status-code': string
+  request_id: string
+  result: object
+  sim_details?: {
+    otp_validated: boolean
+    provider?: string
+  }
+  clientData?: { caseId?: string }
+}
+
+export interface KarzaMobileDetailsResult {
+  contact?: {
+    address?: string | null
+    alt_contact?: string | null
+    email_id?: string | null
+    work_email?: string | null
+  }
+  device?: {
+    '3g_support'?: string
+    device_activation_date?: string | null
+    imei?: string | null
+    model?: string
+  }
+  history?: Array<{ amount?: string; payment_date?: string; payment_type?: string }>
+  identity?: { date_of_birth?: string | null; gender?: string | null; name?: string | null }
+  profile?: Record<string, unknown>
+  sim_details?: {
+    activation_date?: string | null
+    last_activity_date?: string | null
+    otp_validated?: boolean
+    provider?: string
+    type?: string
+  }
+}
+
+export interface KarzaMobileDetailsResponse {
+  'status-code': string
+  request_id: string
+  result: KarzaMobileDetailsResult
+  clientData?: { caseId?: string }
+}
+
+// ── Karza Mobile OTP functions ───────────────────────────────────────────────
+
+export async function sendMobileOtp(
+  creds: KarzaCredentials,
+  params: { mobile: string; caseId?: string }
+): Promise<KarzaMobileOtpResponse> {
+  return karzaFetch(creds, '/v2/mobile/otp', {
+    consent: 'Y',
+    mobile: params.mobile,
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+export async function verifyMobileOtpStatus(
+  creds: KarzaCredentials,
+  params: { request_id: string; otp: string; caseId?: string }
+): Promise<KarzaMobileStatusResponse> {
+  return karzaFetch(creds, '/v2/mobile/status', {
+    request_id: params.request_id,
+    otp: params.otp,
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+export async function getMobileDetails(
+  creds: KarzaCredentials,
+  params: { request_id: string; caseId?: string }
+): Promise<KarzaMobileDetailsResponse> {
+  return karzaFetch(creds, '/v2/mobile/details', {
+    request_id: params.request_id,
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
 export async function pollOcrJob(
   creds: KarzaCredentials,
   jobId: string

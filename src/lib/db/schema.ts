@@ -90,6 +90,7 @@ export const otpLogs = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
     isValid: boolean('is_valid').notNull().default(true),
+    karzaRequestId: varchar('karza_request_id', { length: 200 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(now()),
   },
   (t) => ({
@@ -187,6 +188,9 @@ export const applications = pgTable(
     policyId: uuid('policy_id'),
     policyNumber: varchar('policy_number', { length: 100 }),
     policyIssuedAt: timestamp('policy_issued_at', { withTimezone: true }),
+
+    // Mobile enrichment from Karza (Step 1)
+    mobileEnrichmentData: jsonb('mobile_enrichment_data'),
 
     // Metadata
     source: varchar('source', { length: 20 }).notNull().default('web'),

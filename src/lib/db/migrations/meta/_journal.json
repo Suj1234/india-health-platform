@@ -15,6 +15,13 @@
       "when": 1782391230094,
       "tag": "0001_wild_unicorn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1751155200000,
+      "tag": "0002_karza_mobile_otp",
+      "breakpoints": true
     }
   ]
 }

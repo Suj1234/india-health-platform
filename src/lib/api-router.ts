@@ -6,6 +6,7 @@ export type ExternalApiName =
   | 'iadore'
   | 'karza_tkyc'
   | 'karza_ocr'
+  | 'karza_mobile_otp'
   | 'pmw'
   | 'quotes'
   | 'nuralx'
@@ -83,13 +84,14 @@ function hasEnvCredentials(apiName: ExternalApiName): boolean {
       return !!(process.env.IADORE_BASE_URL && process.env.IADORE_ORG_KEY)
     case 'karza_tkyc':
     case 'karza_ocr':
+    case 'karza_mobile_otp':
       return !!(process.env.KARZA_BASE_URL && process.env.KARZA_API_KEY)
     case 'pmw':
       return !!(process.env.PMW_BASE_URL && process.env.PMW_API_KEY)
     case 'quotes':
       return !!(process.env.QUOTE_API_URL && process.env.QUOTE_API_KEY)
     case 'nuralx':
-      return !!(process.env.NURALX_BASE_URL && process.env.NURALX_CLIENT_ID)
+      return !!(process.env.NURALX_BASE_URL && process.env.NURALX_EMAIL)
     case 'pivc':
       return !!(process.env.PIVC_BASE_URL && process.env.PIVC_API_KEY)
     case 'stp':

@@ -40,17 +40,22 @@ export async function storeOtp({
   otp,
   purpose,
   applicationId,
+  karzaRequestId,
 }: {
   mobile?: string
   email?: string
   otp: string
   purpose: string
   applicationId?: string
+  karzaRequestId?: string
 }): Promise<string> {
   const identifier = email ?? mobile ?? 'unknown'
-  const salt = makeOtpSalt(identifier)
-  const otpHash = hashOtp(otp, salt)
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+  const isKarza = !!karzaRequestId
+  const otpHash = isKarza ? 'karza_managed' : hashOtp(otp, makeOtpSalt(identifier))
+  // Karza TTL is 300 s; internal OTP expires in 10 minutes
+  const expiresAt = isKarza
+    ? new Date(Date.now() + 5 * 60 * 1000)
+    : new Date(Date.now() + 10 * 60 * 1000)
 
   const [log] = await db
     .insert(otpLogs)
@@ -60,11 +65,24 @@ export async function storeOtp({
       otpHash,
       purpose,
       applicationId: applicationId ?? null,
+      karzaRequestId: karzaRequestId ?? null,
       expiresAt,
     })
     .returning()
 
   return log!.id
+}
+
+export async function getOtpLog(otpRefId: string) {
+  const [log] = await db.select().from(otpLogs).where(eq(otpLogs.id, otpRefId)).limit(1)
+  return log ?? null
+}
+
+export async function markOtpUsed(otpRefId: string): Promise<void> {
+  await db
+    .update(otpLogs)
+    .set({ usedAt: new Date(), isValid: false })
+    .where(eq(otpLogs.id, otpRefId))
 }
 
 export async function verifyOtp({

@@ -115,6 +115,61 @@ export function mockKarzaOcrBankStatement(): KarzaOcrResult {
   }
 }
 
+export function mockKarzaMobileOtpSend(params: { mobile: string }): {
+  'status-code': string
+  request_id: string
+  result: object
+  message: string
+} {
+  return {
+    'status-code': '101',
+    request_id: `mock-karza-${params.mobile}-${Date.now()}`,
+    result: {},
+    message: 'OTP sent successfully',
+  }
+}
+
+export function mockKarzaMobileOtpStatus(params: { request_id: string; otp: string }): {
+  'status-code': string
+  request_id: string
+  result: object
+  sim_details: { otp_validated: boolean; provider: string }
+} {
+  void params
+  return {
+    'status-code': '101',
+    request_id: params.request_id,
+    result: {},
+    sim_details: { otp_validated: true, provider: 'mock-telecom' },
+  }
+}
+
+export function mockKarzaMobileDetails(params: { request_id: string }): {
+  'status-code': string
+  request_id: string
+  result: {
+    contact: { address: null; alt_contact: null; email_id: null; work_email: null }
+    device: { '3g_support': string; device_activation_date: null; imei: null; model: string }
+    history: Array<{ amount: string; payment_date: string; payment_type: string }>
+    identity: { date_of_birth: null; gender: null; name: string }
+    profile: Record<string, null>
+    sim_details: { activation_date: null; last_activity_date: null; otp_validated: boolean; provider: string; type: string }
+  }
+} {
+  return {
+    'status-code': '101',
+    request_id: params.request_id,
+    result: {
+      contact: { address: null, alt_contact: null, email_id: null, work_email: null },
+      device: { '3g_support': 'Yes', device_activation_date: null, imei: null, model: 'Mock Device' },
+      history: [],
+      identity: { date_of_birth: null, gender: null, name: 'Mock Customer' },
+      profile: { education: null, language: null, marital_status: null, occupation: null, relationships: null, workplace: null },
+      sim_details: { activation_date: null, last_activity_date: null, otp_validated: true, provider: 'mock-telecom', type: 'postpaid' },
+    },
+  }
+}
+
 export function mockKarzaOcrItr(): KarzaOcrResult {
   return {
     documentType: 'itr',
