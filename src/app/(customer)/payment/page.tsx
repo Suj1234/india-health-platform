@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import Link from 'next/link'
@@ -12,16 +12,21 @@ import {
 import { Button } from '@/components/ui/button'
 import { JourneyShell } from '@/components/customer/journey-shell'
 
-// ─── Temporary plan display — replace with API fetch once quote data flows through ──
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const PLAN_SUMMARY = {
-  plan: 'Standard Care',
-  sumInsured: '₹5 Lakh',
-  riders: 'Critical Illness',
-  policyTerm: '1 Year',
-  basePremium: 4200,
-  riderPremium: 1800,
-  gst: 1080,
+interface PaymentSummary {
+  plan_name: string
+  sum_insured: number
+  base_premium: number
+  riders: Array<{ code: string; name: string; premium: number }>
+  gst_amount: number
+  total_premium: number
+}
+
+function fmtSI(si: number): string {
+  if (si >= 10000000) return `₹${(si / 10000000).toFixed(0)} Crore`
+  if (si >= 100000) return `₹${si / 100000} Lakh`
+  return `₹${(si / 1000).toFixed(0)}K`
 }
 
 type PayPhase = 'summary' | 'processing' | 'success' | 'failed'
@@ -32,9 +37,16 @@ export default function PaymentPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<PayPhase>('summary')
   const [failureMessage, setFailureMessage] = useState<string | null>(null)
+  const [summary, setSummary] = useState<PaymentSummary | null>(null)
 
-  const totalPremium = PLAN_SUMMARY.basePremium + PLAN_SUMMARY.riderPremium
-  const total = totalPremium + PLAN_SUMMARY.gst
+  useEffect(() => {
+    fetch('/api/payment/summary')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setSummary(d as PaymentSummary) })
+      .catch(() => {})
+  }, [])
+
+  const total = summary?.total_premium ?? 0
 
   const handlePay = async () => {
     setPhase('processing')
@@ -154,9 +166,11 @@ export default function PaymentPage() {
                           <Shield className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-foreground">{PLAN_SUMMARY.plan}</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {summary?.plan_name ?? '—'}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {PLAN_SUMMARY.sumInsured} · {PLAN_SUMMARY.policyTerm}
+                            {summary ? fmtSI(summary.sum_insured) : '—'} · 1 Year
                           </p>
                         </div>
                       </div>
@@ -166,25 +180,27 @@ export default function PaymentPage() {
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Base premium</span>
                           <span className="font-medium text-foreground">
-                            ₹{PLAN_SUMMARY.basePremium.toLocaleString('en-IN')}
+                            {summary ? `₹${summary.base_premium.toLocaleString('en-IN')}` : '—'}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Rider ({PLAN_SUMMARY.riders})</span>
-                          <span className="font-medium text-foreground">
-                            ₹{PLAN_SUMMARY.riderPremium.toLocaleString('en-IN')}
-                          </span>
-                        </div>
+                        {summary?.riders.map((r) => (
+                          <div key={r.code} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Rider ({r.name})</span>
+                            <span className="font-medium text-foreground">
+                              ₹{r.premium.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ))}
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">GST @ 18%</span>
                           <span className="font-medium text-foreground">
-                            ₹{PLAN_SUMMARY.gst.toLocaleString('en-IN')}
+                            {summary ? `₹${summary.gst_amount.toLocaleString('en-IN')}` : '—'}
                           </span>
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-border">
                           <span className="text-sm font-bold text-foreground">Total payable</span>
                           <span className="text-xl font-bold text-primary-800">
-                            ₹{total.toLocaleString('en-IN')}
+                            {total ? `₹${total.toLocaleString('en-IN')}` : '—'}
                           </span>
                         </div>
                       </div>
@@ -211,8 +227,9 @@ export default function PaymentPage() {
                           className="w-full"
                           rightIcon={<CreditCard className="h-4 w-4" />}
                           onClick={handlePay}
+                          disabled={!summary}
                         >
-                          Pay ₹{total.toLocaleString('en-IN')}
+                          {total ? `Pay ₹${total.toLocaleString('en-IN')}` : 'Loading…'}
                         </Button>
                         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
                           <Lock className="h-3 w-3 text-emerald-500" />
@@ -276,7 +293,7 @@ export default function PaymentPage() {
                       <div>
                         <h1 className="text-xl font-bold text-foreground tracking-tight">Payment Successful!</h1>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          ₹{total.toLocaleString('en-IN')} paid · Generating your policy document…
+                          {total ? `₹${total.toLocaleString('en-IN')} paid · ` : ''}Generating your policy document…
                         </p>
                       </div>
                     </div>
