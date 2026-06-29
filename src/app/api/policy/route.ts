@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
         policy_end_date: new Date(policy.policyEndDate!).toLocaleDateString('en-IN'),
         insured_name: policy.insuredName ?? app.name ?? '',
         nominee_name: policy.nomineeName ?? '',
+        email: app.email ?? '',
         policy_document_url: policyDocumentUrl,
         free_look_period_expires: policy.freeLookExpiresAt
           ? new Date(policy.freeLookExpiresAt).toLocaleDateString('en-IN')

@@ -22,6 +22,7 @@ interface PolicyData {
   policy_end_date: string
   insured_name: string
   nominee_name: string
+  email: string
   policy_document_url: string | null
   free_look_period_expires: string
 }
@@ -35,6 +36,7 @@ const MOCK_POLICY: PolicyData = {
   policy_end_date: '24 Jun 2027',
   insured_name: 'Rahul Sharma',
   nominee_name: 'Priya Sharma (Spouse)',
+  email: '',
   policy_document_url: null,
   free_look_period_expires: '10 Jul 2026',
 }
@@ -227,7 +229,9 @@ export default function PolicyPage() {
                         <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div>
                           <p className="text-[10px] text-muted-foreground">PDF sent to</p>
-                          <p className="text-xs font-medium text-foreground">your email</p>
+                          <p className="text-xs font-medium text-foreground truncate max-w-[120px]">
+                            {policy.email || 'your email'}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2.5 rounded-xl bg-muted/50 border border-border px-3 py-2.5">
