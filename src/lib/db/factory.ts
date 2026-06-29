@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
@@ -46,15 +47,19 @@ export async function createDb() {
 
     fs.mkdirSync(dataDir, { recursive: true })
 
+    // Pass as file:// URL string — PGlite WASM on Windows fails with a plain Windows path
+    // because its internal URL object comes from a different realm than Node's URL class.
+    const dataDirUrl = pathToFileURL(dataDir).href
+
     let client: PGlite
     try {
-      client = await PGlite.create(dataDir)
+      client = await PGlite.create(dataDirUrl)
     } catch (err) {
       // Corrupted WAL etc — wipe and retry once
       console.warn('[db] PGlite: create failed, wiping and retrying:', (err as Error).message)
       removeDir(dataDir)
       fs.mkdirSync(dataDir, { recursive: true })
-      client = await PGlite.create(dataDir)
+      client = await PGlite.create(dataDirUrl)
     }
 
     const db = drizzlePglite(client, { schema })

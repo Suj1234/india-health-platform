@@ -149,7 +149,7 @@ export function ApplyStep6() {
 
         if (!data.success) { setPagePhase('documents'); return }
 
-        // Individual plan → skip Step 6 entirely
+        // Individual plan → skip Step 6 entirely (keep loading state while redirecting)
         if (data.cover_type === 'individual') {
           router.replace('/apply/7')
           return
@@ -162,9 +162,8 @@ export function ApplyStep6() {
         const init: Uploads = {}
         for (const m of members) init[m.member_id] = {}
         setUploads(init)
+        setPagePhase('documents')
       } catch {
-        // on error still show page, empty members
-      } finally {
         setPagePhase('documents')
       }
     }
@@ -234,7 +233,7 @@ export function ApplyStep6() {
     })
   }
 
-  const allDone = membersForDocs.length > 0 &&
+  const allDone = membersForDocs.length === 0 ||
     membersForDocs.every((m) => uploads[m.member_id]?.front?.url && uploads[m.member_id]?.back?.url)
 
   const handleContinue = async () => {

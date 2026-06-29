@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -11,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { JourneyShell } from '@/components/customer/journey-shell'
 
-// ─── Mock plan data — real app pulls from application state / API ─────────────
+// ─── Temporary plan display — replace with API fetch once quote data flows through ──
 
 const PLAN_SUMMARY = {
   plan: 'Standard Care',
@@ -30,44 +31,79 @@ type PayPhase = 'summary' | 'processing' | 'success' | 'failed'
 export default function PaymentPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<PayPhase>('summary')
+  const [failureMessage, setFailureMessage] = useState<string | null>(null)
 
   const totalPremium = PLAN_SUMMARY.basePremium + PLAN_SUMMARY.riderPremium
   const total = totalPremium + PLAN_SUMMARY.gst
 
   const handlePay = async () => {
     setPhase('processing')
+    setFailureMessage(null)
     try {
-      const orderRes = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: total }),
-      })
-      const order = await orderRes.json()
-      if (!order.success) throw new Error(order.error)
+      // 1. Create order server-side — amount comes from app.finalPremium, not the display values
+      const orderRes = await fetch('/api/payment/create-order', { method: 'POST' })
+      const order = await orderRes.json() as {
+        success: boolean; error?: string
+        order_id: string; amount: number; currency: string
+        razorpay_key: string; prefill: { name: string; email: string; contact: string }
+      }
+      if (!order.success) throw new Error(order.error ?? 'Order creation failed')
 
-      const verifyRes = await fetch('/api/payment/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          razorpay_order_id: order.order_id ?? 'mock_order',
-          razorpay_payment_id: 'mock_pay_' + Date.now(),
-          razorpay_signature: 'mock_signature',
-        }),
+      // 2. Open Razorpay modal and wait for success or failure
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: order.razorpay_key,
+          amount: order.amount,
+          currency: order.currency,
+          order_id: order.order_id,
+          name: 'CareShield Insurance',
+          description: 'Health Insurance Premium',
+          prefill: order.prefill,
+          theme: { color: '#0D5C63' },
+          modal: { ondismiss: () => reject(new Error('dismissed')) },
+          handler: async (response: Record<string, unknown>) => {
+            try {
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              })
+              const verify = await verifyRes.json() as { success: boolean; error?: string }
+              if (!verify.success) reject(new Error(verify.error ?? 'Verification failed'))
+              else resolve()
+            } catch (err) {
+              reject(err)
+            }
+          },
+        })
+        rzp.on('payment.failed', (r: Record<string, unknown>) => {
+          const desc = (r.error as Record<string, string> | undefined)?.description ?? 'Payment failed'
+          reject(new Error(desc))
+        })
+        rzp.open()
       })
-      const verify = await verifyRes.json()
-      if (!verify.success) throw new Error(verify.error)
 
       setPhase('success')
       setTimeout(() => router.push('/policy'), 2200)
-    } catch {
-      // In dev/test: always treat as success so the full flow is testable
-      setPhase('success')
-      setTimeout(() => router.push('/policy'), 2200)
+    } catch (err) {
+      const msg = (err as Error).message
+      if (msg === 'dismissed') {
+        // User closed the modal — let them retry
+        setPhase('summary')
+      } else {
+        setFailureMessage(msg)
+        setPhase('failed')
+      }
     }
   }
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" />
 
       {/* Sticky header — matches apply/layout.tsx */}
       <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border bg-white/95 backdrop-blur-xl">
@@ -171,12 +207,6 @@ export default function PaymentPage() {
                           </p>
                         </div>
 
-                        {/* Dev mode notice */}
-                        <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
-                          <p className="text-[11px] text-blue-700">
-                            <strong>Dev mode:</strong> Payment will be mocked — no real charge. Click &quot;Pay&quot; to simulate a successful transaction.
-                          </p>
-                        </div>
                       </div>
 
                       <div className="space-y-3">
@@ -287,7 +317,7 @@ export default function PaymentPage() {
                       <div>
                         <h1 className="text-xl font-bold text-foreground tracking-tight">Payment Failed</h1>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          Something went wrong. Your account has not been charged.
+                          {failureMessage ?? 'Something went wrong. Your account has not been charged.'}
                         </p>
                       </div>
                     </div>
@@ -297,7 +327,7 @@ export default function PaymentPage() {
                       size="lg"
                       className="w-full"
                       rightIcon={<ArrowRight className="h-4 w-4" />}
-                      onClick={() => setPhase('summary')}
+                      onClick={() => { setPhase('summary'); setFailureMessage(null) }}
                     >
                       Try again
                     </Button>
