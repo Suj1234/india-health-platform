@@ -19,8 +19,8 @@ export interface IAdorePrefillData {
   pincode: string
   occupation_type: 'salaried' | 'self_employed'
   employer_name: string | null
-  hazardous_occupation: null
-  father_name: null
+  hazardous_occupation: string | null
+  father_name: string | null
 }
 
 // ─── Consolidated Process — auth ──────────────────────────────────────────────
