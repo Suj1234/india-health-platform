@@ -80,10 +80,6 @@ export default function PaymentPage() {
             }
           },
         })
-        rzp.on('payment.failed', (r: Record<string, unknown>) => {
-          const desc = (r.error as Record<string, string> | undefined)?.description ?? 'Payment failed'
-          reject(new Error(desc))
-        })
         rzp.open()
       })
 
