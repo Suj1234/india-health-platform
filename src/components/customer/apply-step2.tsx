@@ -45,7 +45,7 @@ interface PrefilledData {
 // ─── Sub-step config ──────────────────────────────────────────────────────────
 
 const SUB_STEPS = [
-  { key: 'identity', label: '1. Identity' },
+  { key: 'identity', label: '1. Identity & Demographics' },
   { key: 'cover-members', label: '2. Cover & Members' },
 ]
 
@@ -392,7 +392,7 @@ export function ApplyStep2() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Auto-filled from your PAN. Complete the missing fields to continue.
+                  Your identity is verified via PAN. Just add your email to continue.
                 </p>
               </div>
 
@@ -400,6 +400,7 @@ export function ApplyStep2() {
                 {/* Left: Identity + Employment */}
                 <div className="px-8 py-6 space-y-6">
                   <div className="space-y-4">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verified from PAN</p>
                     <ReadOnlyField label="Full Name" value={details.name} />
                     <ReadOnlyField
                       label="Date of Birth"
@@ -445,25 +446,34 @@ export function ApplyStep2() {
                   </div>
                 </div>
 
-                {/* Right: Address + Email */}
-                <div className="px-8 py-6 space-y-6">
-                  <div className="space-y-4">
-                    <Input label="Flat / Building" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
-                      <Input label="State" value={state} onChange={(e) => setState(e.target.value)} />
-                    </div>
-                    <Input
-                      label="PIN Code"
-                      value={pincode}
-                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      maxLength={6}
-                      inputMode="numeric"
-                    />
+                {/* Right: Address */}
+                <div className="px-8 py-6 space-y-4">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Address{' '}
+                    <span className="text-slate-300 font-normal normal-case tracking-normal">· pre-filled, edit if needed</span>
+                  </p>
+                  <Input label="Flat / Building" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
+                    <Input label="State" value={state} onChange={(e) => setState(e.target.value)} />
                   </div>
+                  <Input
+                    label="PIN Code"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
 
-                  <div className="border-t border-dashed border-slate-200" />
-
+              {/* Email — full-width action strip */}
+              <div className="border-t border-border bg-primary-50/40 px-8 py-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white shrink-0">1</span>
+                  <p className="text-xs font-semibold text-primary-800 uppercase tracking-widest">Action required</p>
+                </div>
+                <div className="max-w-sm">
                   <Input
                     type="email"
                     label="Email Address"
@@ -471,7 +481,7 @@ export function ApplyStep2() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setEmailError('') }}
                     error={emailError}
-                    hint="Policy document will be sent here"
+                    hint="Your policy document will be sent here"
                   />
                 </div>
               </div>
