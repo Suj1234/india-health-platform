@@ -446,43 +446,34 @@ export function ApplyStep2() {
                   </div>
                 </div>
 
-                {/* Right: Address */}
+                {/* Right: Address + Email */}
                 <div className="px-8 py-6 space-y-4">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Address{' '}
-                    <span className="text-slate-300 font-normal normal-case tracking-normal">· pre-filled, edit if needed</span>
+                    <span className="text-slate-300 font-normal normal-case tracking-normal">· pre-filled</span>
                   </p>
-                  <Input label="Flat / Building" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} />
+                  <ReadOnlyField label="Flat / Building" value={addressLine} />
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
-                    <Input label="State" value={state} onChange={(e) => setState(e.target.value)} />
+                    <ReadOnlyField label="City" value={city} />
+                    <ReadOnlyField label="State" value={state} />
                   </div>
-                  <Input
-                    label="PIN Code"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    maxLength={6}
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
+                  <ReadOnlyField label="PIN Code" value={pincode} />
 
-              {/* Email — full-width action strip */}
-              <div className="border-t border-border bg-primary-50/40 px-8 py-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white shrink-0">1</span>
-                  <p className="text-xs font-semibold text-primary-800 uppercase tracking-widest">Action required</p>
-                </div>
-                <div className="max-w-sm">
-                  <Input
-                    type="email"
-                    label="Email Address"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setEmailError('') }}
-                    error={emailError}
-                    hint="Your policy document will be sent here"
-                  />
+                  <div className="rounded-xl border-2 border-primary-200 bg-primary-50/60 p-4 space-y-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[9px] font-bold text-white shrink-0">!</span>
+                      <span className="text-[10px] font-bold text-primary-700 uppercase tracking-widest">Required</span>
+                    </div>
+                    <Input
+                      type="email"
+                      label="Email Address"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setEmailError('') }}
+                      error={emailError}
+                      hint="Your policy document will be sent here"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
