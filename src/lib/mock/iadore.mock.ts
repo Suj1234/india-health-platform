@@ -277,9 +277,9 @@ export function parseIAdoreResponse(raw: IAdoreFullResponse, mobile: string): IA
 
 // Mock PANs and genders paired to MOCK_PROFILES by index
 const MOCK_CP_EXTRAS = [
-  { pan: 'ABCRS1234H', gender: 'male' as const },
-  { pan: 'FGHPP5678P', gender: 'female' as const },
-  { pan: 'KLMAN9012N', gender: 'male' as const },
+  { pan: 'ABCRS1234H', gender: 'male' as const,   hazardous_occupation: null },
+  { pan: 'FGHPP5678P', gender: 'female' as const, hazardous_occupation: 'Mining' },
+  { pan: 'KLMAN9012N', gender: 'male' as const,   hazardous_occupation: null },
 ]
 
 function ddmmyyyyToIso(dob: string): string {
@@ -303,7 +303,7 @@ export function mockConsolidatedPrefillResult(mobile: string, pan?: string): IAd
     pincode: profile.pincode,
     occupation_type: 'salaried',
     employer_name: profile.employer,
-    hazardous_occupation: null,
+    hazardous_occupation: extras.hazardous_occupation,
     father_name: null,
   }
 }

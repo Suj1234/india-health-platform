@@ -7,9 +7,13 @@ import { applications, quotes, medicalQuestionnaires, idVerifications } from '@/
 import { getCustomerSession } from '@/lib/auth'
 import { callExternalAPI } from '@/lib/api-router'
 import { mockStpDecision } from '@/lib/mock/stp.mock'
-import { sendUnderReviewEmail, sendUwApprovedEmail } from '@/lib/brevo'
-import { createPaymentLinkToken } from '@/lib/auth'
-import type { IAdoreSummary, STPResult, QuoteOption } from '@/types/application'
+import { sendUnderReviewEmail } from '@/lib/brevo'
+import type { IAdoreSummary, STPResult } from '@/types/application'
+
+const ALREADY_EVALUATED_STATUSES = [
+  'stp_evaluated', 'payment_pending', 'payment_done', 'policy_issued',
+  'uw_pending', 'uw_approved', 'uw_rejected', 'uw_more_docs', 'docs_requested',
+]
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +22,25 @@ export async function POST(req: NextRequest) {
 
     const [app] = await db.select().from(applications).where(eq(applications.id, session.application_id)).limit(1)
     if (!app) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+
+    // If STP was already run, return the stored result instead of erroring
+    if (ALREADY_EVALUATED_STATUSES.includes(app.status)) {
+      const [storedQuote] = await db
+        .select()
+        .from(quotes)
+        .where(eq(quotes.applicationId, session.application_id))
+        .limit(1)
+
+      return NextResponse.json({
+        success: true,
+        decision: app.stpDecision ?? 'approved',
+        stp_score: app.stpScore ? Number(app.stpScore) : null,
+        message: app.stpMessage ?? '',
+        plan_name: storedQuote?.planName ?? '',
+        sum_insured: Number(storedQuote?.sumInsured ?? 0),
+        annual_premium: Number(storedQuote?.annualPremium ?? 0),
+      })
+    }
 
     if (!['proposal_submitted', 'docs_uploaded'].includes(app.status)) {
       return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 409 })
@@ -106,7 +129,6 @@ export async function POST(req: NextRequest) {
       })
       .where(eq(applications.id, session.application_id))
 
-    // Send emails
     if (!approved && app.email && app.name) {
       try {
         await sendUnderReviewEmail({
@@ -127,6 +149,9 @@ export async function POST(req: NextRequest) {
       decision: approved ? 'approved' : 'referred',
       stp_score: stpResult.stp_score,
       message: stpResult.message,
+      plan_name: selectedQuote?.planName ?? '',
+      sum_insured: Number(selectedQuote?.sumInsured ?? 0),
+      annual_premium: Number(selectedQuote?.annualPremium ?? 0),
     })
   } catch (err) {
     console.error('[journey/stp] Error:', err)

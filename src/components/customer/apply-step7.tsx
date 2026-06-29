@@ -35,6 +35,12 @@ export function ApplyStep7() {
   const [decision, setDecision] = useState<STPDecision>('approved')
   const [progress, setProgress] = useState(0)
   const [stpScore, setStpScore] = useState<number | null>(null)
+  const [evaluationDone, setEvaluationDone] = useState(false)
+
+  // Plan data from DB
+  const [planName, setPlanName] = useState('')
+  const [sumInsured, setSumInsured] = useState(0)
+  const [annualPremium, setAnnualPremium] = useState(0)
 
   useEffect(() => {
     let animTimer: ReturnType<typeof setInterval>
@@ -53,12 +59,16 @@ export function ApplyStep7() {
         setProgress(100)
         setDecision(data.decision === 'referred' ? 'referred' : 'approved')
         if (typeof data.stp_score === 'number') setStpScore(data.stp_score)
-        setTimeout(() => setPhase('result'), 600)
+        if (data.plan_name) setPlanName(data.plan_name)
+        if (data.sum_insured) setSumInsured(data.sum_insured)
+        if (data.annual_premium) setAnnualPremium(data.annual_premium)
+        // Don't auto-transition — wait for user to click Continue
+        setEvaluationDone(true)
       } catch {
         clearInterval(animTimer)
         setProgress(100)
         setDecision('approved')
-        setTimeout(() => setPhase('result'), 600)
+        setEvaluationDone(true)
       }
     }
 
@@ -68,6 +78,17 @@ export function ApplyStep7() {
 
   const handleProceedToPayment = () => {
     router.push('/payment')
+  }
+
+  const formatCurrency = (amount: number) =>
+    amount > 0
+      ? `₹${amount.toLocaleString('en-IN')}`
+      : '—'
+
+  const formatSumInsured = (amount: number) => {
+    if (amount <= 0) return '—'
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(0)} Lakh`
+    return `₹${amount.toLocaleString('en-IN')}`
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -92,10 +113,10 @@ export function ApplyStep7() {
                   Our system is reviewing your profile and health data
                 </p>
               </div>
-              <div className="px-8 py-12 text-center">
+              <div className="px-8 py-10 text-center">
                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-100 mb-5">
                   <motion.div
-                    animate={{ rotate: 360 }}
+                    animate={evaluationDone ? {} : { rotate: 360 }}
                     transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
                   >
                     <Shield className="h-8 w-8 text-primary-700" strokeWidth={1.5} />
@@ -137,6 +158,53 @@ export function ApplyStep7() {
                     </div>
                   ))}
                 </div>
+
+                {/* Risk score + Continue — appear after evaluation completes */}
+                <AnimatePresence>
+                  {evaluationDone && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.35, delay: 0.15 }}
+                      className="mt-8 max-w-xs mx-auto space-y-4"
+                    >
+                      {/* Decision badge */}
+                      <div className={cn(
+                        'inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold',
+                        decision === 'approved'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-700'
+                      )}>
+                        <CheckCircle2 className="h-4 w-4" />
+                        {decision === 'approved' ? 'Instantly Approved' : 'Referred for Review'}
+                      </div>
+
+                      {/* Risk score row */}
+                      {stpScore !== null && (
+                        <div className="flex items-center justify-between rounded-xl border border-border bg-slate-50 px-4 py-3">
+                          <span className="text-xs font-medium text-muted-foreground">Risk Score</span>
+                          <span className={cn(
+                            'text-sm font-bold',
+                            stpScore >= 75 ? 'text-emerald-600'
+                              : stpScore >= 60 ? 'text-amber-600'
+                              : 'text-red-600'
+                          )}>
+                            {stpScore} / 100
+                          </span>
+                        </div>
+                      )}
+
+                      <Button
+                        size="lg"
+                        className="w-full"
+                        rightIcon={<ArrowRight className="h-4 w-4" />}
+                        onClick={() => setPhase('result')}
+                      >
+                        Continue
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -175,17 +243,19 @@ export function ApplyStep7() {
                   <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Your Plan</p>
                   <div className="space-y-4">
                     <div>
-                      <p className="text-base font-bold text-foreground">Standard Care · ₹5 L</p>
+                      <p className="text-base font-bold text-foreground">
+                        {planName || 'Health Insurance'}{sumInsured > 0 ? ` · ${formatSumInsured(sumInsured)}` : ''}
+                      </p>
                       <p className="text-xl font-bold text-primary-800 mt-1">
-                        ₹4,200
+                        {annualPremium > 0 ? formatCurrency(annualPremium) : '—'}
                         <span className="text-sm font-normal text-muted-foreground"> / year</span>
                       </p>
                     </div>
                     <div className="border-t border-border/60 pt-4 space-y-3">
                       {[
-                        { icon: Shield, label: 'Cover', value: '₹5 Lakh' },
+                        { icon: Shield,   label: 'Cover',       value: sumInsured > 0 ? formatSumInsured(sumInsured) : '—' },
                         { icon: FileText, label: 'Policy Term', value: '1 Year' },
-                        { icon: Clock, label: 'Valid from', value: 'On payment' },
+                        { icon: Clock,    label: 'Valid from',  value: 'On payment' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -200,8 +270,8 @@ export function ApplyStep7() {
                 </div>
 
                 <div className="px-8 py-6 flex flex-col justify-between gap-6">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">Next Step</p>
+                  <div>
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Next Step</p>
                     <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-3">
                       <Clock className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                       <div>
@@ -211,17 +281,6 @@ export function ApplyStep7() {
                         </p>
                       </div>
                     </div>
-                    {stpScore !== null && (
-                      <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground font-medium">Risk Score</span>
-                        <span className={cn(
-                          'text-sm font-bold',
-                          stpScore >= 75 ? 'text-emerald-600' : stpScore >= 60 ? 'text-amber-600' : 'text-red-600',
-                        )}>
-                          {stpScore} / 100
-                        </span>
-                      </div>
-                    )}
                   </div>
                   <Button
                     size="lg"
@@ -229,7 +288,7 @@ export function ApplyStep7() {
                     rightIcon={<CreditCard className="h-4 w-4" />}
                     onClick={handleProceedToPayment}
                   >
-                    Continue
+                    Proceed to Payment
                   </Button>
                 </div>
               </div>
@@ -273,17 +332,6 @@ export function ApplyStep7() {
                 </div>
 
                 <div className="space-y-3">
-                  {stpScore !== null && (
-                    <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-medium">Risk Score</span>
-                      <span className={cn(
-                        'text-sm font-bold',
-                        stpScore >= 75 ? 'text-emerald-600' : stpScore >= 60 ? 'text-amber-600' : 'text-red-600',
-                      )}>
-                        {stpScore} / 100
-                      </span>
-                    </div>
-                  )}
                   {[
                     {
                       icon: Mail,
