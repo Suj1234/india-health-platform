@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ContentPhase = 'loading' | 'manual-pan' | 'identity' | 'cover-members'
+type ContentPhase = 'loading' | 'polling' | 'manual-pan' | 'identity' | 'cover-members'
 type CoverType = 'individual' | 'family_floater' | 'parents'
 type MemberRelation = 'spouse' | 'son' | 'daughter' | 'father' | 'mother'
 
@@ -99,6 +99,9 @@ export function ApplyStep2() {
 
   const [contentPhase, setContentPhase] = useState<ContentPhase>('loading')
 
+  // iAdore job tracking (live mode only)
+  const [pollTxId, setPollTxId] = useState<string | null>(null)
+
   // Manual PAN entry (fallback when auto-prefill unavailable)
   const [manualPan, setManualPan] = useState('')
   const [manualPanError, setManualPanError] = useState('')
@@ -130,28 +133,6 @@ export function ApplyStep2() {
   const subStepCurrent = contentPhase === 'cover-members' ? 'cover-members' : 'identity'
   const subStepCompleted = contentPhase === 'cover-members' ? ['identity'] : []
 
-  // ── Auto-prefill on mount (mobile → KYC lookup, no PAN input needed) ────────
-  useEffect(() => {
-    let cancelled = false
-    async function loadPreProfile() {
-      try {
-        const res = await fetch('/api/journey/pre-profile')
-        const data = await res.json()
-        if (cancelled) return
-
-        if (data.success && data.can_prefill && data.profile) {
-          populateDetails(data.profile as PrefilledData)
-        } else {
-          setContentPhase('manual-pan')
-        }
-      } catch {
-        if (!cancelled) setContentPhase('manual-pan')
-      }
-    }
-    loadPreProfile()
-    return () => { cancelled = true }
-  }, [])
-
   // ── Populate form from a PrefilledData profile ────────────────────────────
   const populateDetails = useCallback((profile: PrefilledData) => {
     setDetails(profile)
@@ -165,7 +146,71 @@ export function ApplyStep2() {
     setContentPhase('identity')
   }, [])
 
-  // ── Manual PAN verify (fallback when auto-prefill unavailable) ────────────
+  // ── Auto-prefill on mount (mobile → iAdore lookup) ───────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    async function loadPreProfile() {
+      try {
+        const res = await fetch('/api/journey/pre-profile')
+        const data = await res.json()
+        if (cancelled) return
+
+        if (!data.success) { setContentPhase('manual-pan'); return }
+
+        if (data.status === 'done' && data.profile) {
+          // Mock mode — profile returned immediately
+          populateDetails(data.profile as PrefilledData)
+        } else if (data.status === 'running' && data.tx_id) {
+          // Live mode — start polling
+          setPollTxId(data.tx_id as string)
+          setContentPhase('polling')
+        } else {
+          setContentPhase('manual-pan')
+        }
+      } catch {
+        if (!cancelled) setContentPhase('manual-pan')
+      }
+    }
+    loadPreProfile()
+    return () => { cancelled = true }
+  }, [])
+
+  // ── Polling loop (live mode only, runs when contentPhase === 'polling') ──────
+  useEffect(() => {
+    if (contentPhase !== 'polling' || !pollTxId) return
+
+    const POLL_INTERVAL_MS = 3000
+    const TIMEOUT_MS = 90000
+    const startedAt = Date.now()
+    let cancelled = false
+
+    async function tick() {
+      if (cancelled) return
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        setContentPhase('manual-pan')
+        return
+      }
+      try {
+        const res = await fetch(`/api/journey/pre-profile/status?tx_id=${pollTxId}`)
+        const data = await res.json()
+        if (cancelled) return
+
+        if (data.status === 'done' && data.profile) {
+          populateDetails(data.profile as PrefilledData)
+        } else if (data.status === 'failed') {
+          setContentPhase('manual-pan')
+        }
+        // 'running' — interval fires next tick
+      } catch {
+        if (!cancelled) setContentPhase('manual-pan')
+      }
+    }
+
+    const id = setInterval(tick, POLL_INTERVAL_MS)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [contentPhase, pollTxId, populateDetails])
+
+  // ── Manual PAN verify (fallback — re-runs iAdore with mobile + PAN) ─────────
   const handleVerifyManualPan = async () => {
     const pan = manualPan.toUpperCase().trim()
     if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
@@ -182,7 +227,17 @@ export function ApplyStep2() {
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? 'Verification failed')
-      populateDetails(data.profile as PrefilledData)
+
+      if (data.status === 'done' && data.profile) {
+        // Mock mode — immediate
+        populateDetails(data.profile as PrefilledData)
+      } else if (data.status === 'running' && data.tx_id) {
+        // Live mode — enter polling phase
+        setPollTxId(data.tx_id as string)
+        setContentPhase('polling')
+      } else {
+        throw new Error('Unexpected response')
+      }
     } catch {
       setManualPanError('Could not verify PAN. Please try again.')
     } finally {
@@ -322,6 +377,26 @@ export function ApplyStep2() {
           </motion.div>
         )}
 
+        {/* ── Polling (live mode — waiting for iAdore job) ──────────────────── */}
+        {contentPhase === 'polling' && (
+          <motion.div
+            key="polling"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center justify-center py-20 text-center"
+          >
+            <div className="relative mb-5">
+              <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center">
+                <CreditCard className="h-7 w-7 text-primary-600" strokeWidth={1.5} />
+              </div>
+              <div className="absolute inset-0 rounded-2xl border-4 border-primary-100 border-t-primary-700 animate-spin" />
+            </div>
+            <h2 className="text-lg font-bold text-foreground mb-1">Verifying your identity…</h2>
+            <p className="text-sm text-muted-foreground">Looking up your details via mobile. Usually takes 20–30 seconds.</p>
+          </motion.div>
+        )}
+
         {/* ── Manual PAN entry ─────────────────────────────────────────────── */}
         {contentPhase === 'manual-pan' && (
           <motion.div
@@ -401,6 +476,7 @@ export function ApplyStep2() {
                 <div className="px-8 py-6 space-y-6">
                   <div className="space-y-4">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verified from PAN</p>
+                    <ReadOnlyField label="PAN Number" value={details.pan} />
                     <ReadOnlyField label="Full Name" value={details.name} />
                     <ReadOnlyField
                       label="Date of Birth"

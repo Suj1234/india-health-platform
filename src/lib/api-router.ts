@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm'
 
 export type ExternalApiName =
   | 'iadore'
+  | 'iadore_consolidated'
   | 'karza_tkyc'
   | 'karza_ocr'
   | 'karza_mobile_otp'
@@ -82,6 +83,8 @@ function hasEnvCredentials(apiName: ExternalApiName): boolean {
   switch (apiName) {
     case 'iadore':
       return !!(process.env.IADORE_BASE_URL && process.env.IADORE_ORG_KEY)
+    case 'iadore_consolidated':
+      return !!(process.env.IADORE_CP_BASE_URL && process.env.IADORE_CP_SECURE_ID)
     case 'karza_tkyc':
     case 'karza_ocr':
     case 'karza_mobile_otp':

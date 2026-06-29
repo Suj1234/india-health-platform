@@ -1,4 +1,5 @@
 import type { IAdoreSummary } from '@/types/application'
+import type { IAdorePrefillData } from '@/lib/external/iadore'
 
 export type CheckResult = 'pass' | 'warn' | 'fail'
 export type RiskLevel = 'Low' | 'Medium' | 'High' | 'Very High'
@@ -269,5 +270,40 @@ export function parseIAdoreResponse(raw: IAdoreFullResponse, mobile: string): IA
     income_from_bureau: r.creditBureauData.imputedIncome,
     income_from_bank_statement: r.bankStatementData ? r.bankStatementData.avgMonthlyCredit * 12 : null,
     surrogate_income: null,
+  }
+}
+
+// ─── Mock for consolidatedProcess (Step 2 prefill) ───────────────────────────
+
+// Mock PANs and genders paired to MOCK_PROFILES by index
+const MOCK_CP_EXTRAS = [
+  { pan: 'ABCRS1234H', gender: 'male' as const },
+  { pan: 'FGHPP5678P', gender: 'female' as const },
+  { pan: 'KLMAN9012N', gender: 'male' as const },
+]
+
+function ddmmyyyyToIso(dob: string): string {
+  const [d, m, y] = dob.split('/')
+  return `${y}-${m}-${d}`
+}
+
+export function mockConsolidatedPrefillResult(mobile: string, pan?: string): IAdorePrefillData {
+  const idx = parseInt(mobile.slice(-1) ?? '0', 10) % MOCK_PROFILES.length
+  const profile = MOCK_PROFILES[idx]!
+  const extras = MOCK_CP_EXTRAS[idx]!
+
+  return {
+    pan: pan ?? extras.pan,
+    name: profile.name,
+    dob: ddmmyyyyToIso(profile.dob),
+    gender: extras.gender,
+    address_line: '14, Model Town, Sector 5',
+    city: profile.city,
+    state: profile.state,
+    pincode: profile.pincode,
+    occupation_type: 'salaried',
+    employer_name: profile.employer,
+    hazardous_occupation: null,
+    father_name: null,
   }
 }
