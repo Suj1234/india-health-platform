@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, Check, Camera, Activity, Heart,
   Wind, Droplets, Zap, Thermometer,
-  AlertTriangle, FlaskConical, Brain, Gauge, BarChart2,
+  AlertTriangle, FlaskConical, Brain, Gauge, BarChart2, Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -295,6 +295,8 @@ export function ApplyStep3() {
   const mockTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied,         setCopied]        = useState(false)
   const [showMockButton, setShowMockButton] = useState(false)
+  const [emailSent,      setEmailSent]      = useState(false)
+  const [maskedEmail,    setMaskedEmail]    = useState<string | null>(null)
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const proposer        = memberList.find((m) => m.is_proposer) ?? null
@@ -547,6 +549,10 @@ export function ApplyStep3() {
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to start scan')
       setScanUrl(data.scan_url)
       setScanPhase('waiting')
+      if (data.email_sent) {
+        setEmailSent(true)
+        setMaskedEmail(data.masked_email ?? null)
+      }
       startPolling(!!data.is_mock)
     } catch {
       // Real scan unavailable — fall back to stub vitals silently
@@ -1372,6 +1378,12 @@ export function ApplyStep3() {
 
                     {/* Footer */}
                     <div className="px-6 py-3 border-t border-border bg-slate-50 shrink-0 space-y-2.5">
+                      {emailSent && maskedEmail && (
+                        <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span>Scan link sent to <strong>{maskedEmail}</strong> — open on your phone for best experience</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
                           Scan not loading?{' '}

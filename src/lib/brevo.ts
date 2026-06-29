@@ -194,6 +194,40 @@ export async function sendUwApprovedEmail({
   })
 }
 
+// Email template: NuralX vitals scan link
+export async function sendScanLinkEmail({
+  email,
+  name,
+  scanUrl,
+  insurerName,
+}: {
+  email: string
+  name: string
+  scanUrl: string
+  insurerName: string
+}): Promise<string | null> {
+  return sendEmail({
+    to: email,
+    toName: name,
+    subject: `${insurerName} — Complete your vitals scan`,
+    htmlContent: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #0D5C63;">${insurerName}</h2>
+        <p>Dear ${name},</p>
+        <p>You are one step away from completing your health insurance application. Please complete a quick <strong>vitals scan</strong> using your phone camera.</p>
+        <p style="color: #64748b; font-size: 14px;">The scan takes about 60 seconds and measures your heart rate, blood pressure, and SpO₂.</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${scanUrl}" style="background: #0D5C63; color: white; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px;">
+            Start Vitals Scan →
+          </a>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px;">Open this link on your phone for the best experience. The link is valid for your current session only.</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">— ${insurerName} Team</p>
+      </div>
+    `,
+  })
+}
+
 // Email template: Policy issued
 export async function sendPolicyEmail({
   email,

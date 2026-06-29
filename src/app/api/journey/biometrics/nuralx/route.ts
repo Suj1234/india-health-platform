@@ -6,7 +6,14 @@ import { getCustomerSession } from '@/lib/auth'
 import { callExternalAPI, getInsurerCredentials } from '@/lib/api-router'
 import { initiateScan } from '@/lib/external/nuralx'
 import { mockNuralXScanInitiate } from '@/lib/mock/nuralx.mock'
+import { sendScanLinkEmail } from '@/lib/brevo'
 import type { NuralXCredentials } from '@/types/insurer'
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@')
+  if (!local || !domain) return email
+  return `${local.slice(0, 2)}***@${domain}`
+}
 
 function buildCredsFromEnv(): NuralXCredentials | null {
   const base_url = process.env.NURALX_BASE_URL
@@ -85,11 +92,31 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Auto-send scan link to customer email (real sessions only)
+    let emailSent = false
+    let maskedEmail: string | null = null
+    if (!isMockSession && app.email) {
+      try {
+        await sendScanLinkEmail({
+          email: app.email,
+          name: app.name ?? 'there',
+          scanUrl: result.scan_url,
+          insurerName: 'CareShield',
+        })
+        emailSent = true
+        maskedEmail = maskEmail(app.email)
+      } catch (emailErr) {
+        console.error('[biometrics/nuralx] Scan link email failed:', emailErr)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       scan_url: result.scan_url,
       scan_id: result.scan_id,
       is_mock: isMockSession,
+      email_sent: emailSent,
+      masked_email: maskedEmail,
     })
   } catch (err) {
     console.error('[biometrics/nuralx] Error:', err)

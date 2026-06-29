@@ -34,6 +34,7 @@ export function ApplyStep7() {
   const [phase, setPhase] = useState<Phase>('evaluating')
   const [decision, setDecision] = useState<STPDecision>('approved')
   const [progress, setProgress] = useState(0)
+  const [stpScore, setStpScore] = useState<number | null>(null)
 
   useEffect(() => {
     let animTimer: ReturnType<typeof setInterval>
@@ -51,6 +52,7 @@ export function ApplyStep7() {
         clearInterval(animTimer)
         setProgress(100)
         setDecision(data.decision === 'referred' ? 'referred' : 'approved')
+        if (typeof data.stp_score === 'number') setStpScore(data.stp_score)
         setTimeout(() => setPhase('result'), 600)
       } catch {
         clearInterval(animTimer)
@@ -198,8 +200,8 @@ export function ApplyStep7() {
                 </div>
 
                 <div className="px-8 py-6 flex flex-col justify-between gap-6">
-                  <div>
-                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Next Step</p>
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">Next Step</p>
                     <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-3">
                       <Clock className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                       <div>
@@ -209,6 +211,17 @@ export function ApplyStep7() {
                         </p>
                       </div>
                     </div>
+                    {stpScore !== null && (
+                      <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground font-medium">Risk Score</span>
+                        <span className={cn(
+                          'text-sm font-bold',
+                          stpScore >= 75 ? 'text-emerald-600' : stpScore >= 60 ? 'text-amber-600' : 'text-red-600',
+                        )}>
+                          {stpScore} / 100
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="lg"
@@ -216,7 +229,7 @@ export function ApplyStep7() {
                     rightIcon={<CreditCard className="h-4 w-4" />}
                     onClick={handleProceedToPayment}
                   >
-                    Proceed to Payment
+                    Continue
                   </Button>
                 </div>
               </div>
@@ -260,6 +273,17 @@ export function ApplyStep7() {
                 </div>
 
                 <div className="space-y-3">
+                  {stpScore !== null && (
+                    <div className="rounded-xl border border-border bg-slate-50 px-4 py-3 flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-medium">Risk Score</span>
+                      <span className={cn(
+                        'text-sm font-bold',
+                        stpScore >= 75 ? 'text-emerald-600' : stpScore >= 60 ? 'text-amber-600' : 'text-red-600',
+                      )}>
+                        {stpScore} / 100
+                      </span>
+                    </div>
+                  )}
                   {[
                     {
                       icon: Mail,
@@ -296,7 +320,7 @@ export function ApplyStep7() {
                   rightIcon={<ArrowRight className="h-4 w-4" />}
                   onClick={() => router.push('/')}
                 >
-                  Back to home
+                  Continue
                 </Button>
               </div>
             </div>
