@@ -4,7 +4,6 @@ import { otpLogs } from './db/schema'
 import { eq, and, gt, desc, count } from 'drizzle-orm'
 
 export function generateOtp(): string {
-  if (process.env.APP_EXPOSE_TEST_OTP === 'true') return '123456'
   return randomInt(100000, 999999).toString()
 }
 

@@ -45,14 +45,12 @@ export async function POST(req: NextRequest) {
       console.log(`[send-otp] MSG91 unavailable for ${mobile} — using mock path`)
     }
 
-    const exposeDebugOtp = process.env.APP_EXPOSE_TEST_OTP === 'true'
-
     return NextResponse.json({
       success: true,
       message: 'OTP sent',
       otp_ref_id: otpRefId,
       expires_in_seconds: 600,
-      ...(!smsSent || exposeDebugOtp ? { debug_otp: otp } : {}),
+      ...(!smsSent ? { debug_otp: otp } : {}),
     })
   } catch (err) {
     console.error('[send-otp] Unexpected error:', err)
