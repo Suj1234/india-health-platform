@@ -6,12 +6,6 @@ import { db } from '@/lib/db'
 import { applications, policies } from '@/lib/db/schema'
 import { getCustomerSession } from '@/lib/auth'
 
-// Add fl_attachment so the browser downloads the file instead of opening inline
-// (avoids "Failed to load PDF document" in Chrome's built-in viewer)
-function toDownloadUrl(url: string): string {
-  return url.replace('/raw/upload/', '/raw/upload/fl_attachment/')
-}
-
 export async function GET(req: NextRequest) {
   try {
     const session = await getCustomerSession()
@@ -27,13 +21,7 @@ export async function GET(req: NextRequest) {
     const [policy] = await db.select().from(policies).where(eq(policies.id, app.policyId)).limit(1)
     if (!policy) return NextResponse.json({ success: false, error: 'Policy not found' }, { status: 404 })
 
-    let policyDocumentUrl = policy.policyDocumentUrl ?? ''
-    if (policyDocumentUrl.includes('res.cloudinary.com')) {
-      policyDocumentUrl = toDownloadUrl(policyDocumentUrl)
-      console.log('[api/policy] Download URL:', policyDocumentUrl)
-    } else if (policyDocumentUrl.includes('mock-cloudinary.local')) {
-      console.warn('[api/policy] Mock URL — Cloudinary was not configured when this policy was issued. Re-run journey.')
-    }
+    const policyDocumentUrl = policy.policyDocumentUrl ?? ''
 
     return NextResponse.json({
       success: true,

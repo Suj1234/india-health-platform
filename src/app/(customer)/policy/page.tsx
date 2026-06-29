@@ -210,9 +210,9 @@ export default function PolicyPage() {
                   </div>
 
                   <div className="flex flex-col gap-3 flex-1 justify-end">
-                    {/* Download PDF */}
+                    {/* Download PDF — proxied through our API to force proper download */}
                     {policy.policy_document_url ? (
-                      <a href={policy.policy_document_url} target="_blank" rel="noopener noreferrer" className="block">
+                      <a href="/api/policy/download" download={`${policy.policy_number}.pdf`} className="block">
                         <Button size="lg" className="w-full" leftIcon={<Download className="h-4 w-4" />}>
                           Download Policy PDF
                         </Button>
