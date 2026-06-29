@@ -84,8 +84,8 @@ export interface QuoteApiCredentials {
 
 export interface NuralXCredentials {
   base_url: string
-  client_id: string
-  client_secret: string
+  email: string
+  password: string
   callback_url: string
 }
 
