@@ -16,8 +16,19 @@ import { JourneyShell } from '@/components/customer/journey-shell'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type HealthSubStep = 'vitals' | 'conditions' | 'history' | 'scan'
-type ScanPhase = 'intro' | 'scanning' | 'result'
+type ScanPhase = 'intro' | 'initiating' | 'waiting' | 'result' | 'timeout'
 type PagePhase = 'loading' | 'health'
+
+interface NuralXVitalsResult {
+  heart_rate: number | null
+  respiratory_rate: number | null
+  blood_pressure_systolic: number | null
+  blood_pressure_diastolic: number | null
+  oxygen_saturation: number | null
+  stress_index: number | null
+  wellness_index: number | null
+  raw: Record<string, unknown>
+}
 
 interface MemberContext {
   member_id: string
@@ -61,13 +72,25 @@ const CONDITIONS = [
 
 const FAMILY_CONDITIONS = ['Diabetes', 'Hypertension', 'Heart disease', 'Cancer', 'Kidney disease', 'Stroke']
 
-const MOCK_VITALS = {
+const MOCK_VITALS_NUMERIC: NuralXVitalsResult = {
   heart_rate: 72,
   respiratory_rate: 16,
-  blood_pressure: '118/76',
+  blood_pressure_systolic: 118,
+  blood_pressure_diastolic: 76,
   oxygen_saturation: 98,
-  stress_index: 'Low',
-  bmi_risk: 'Normal',
+  stress_index: 20,
+  wellness_index: 75,
+  raw: {},
+}
+
+const POLL_INTERVAL_MS = 5000
+const POLL_TIMEOUT_MS  = 15 * 60 * 1000
+
+function stressLabel(index: number | null): string {
+  if (index === null) return 'N/A'
+  if (index < 34) return 'Low'
+  if (index < 67) return 'Moderate'
+  return 'High'
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -221,18 +244,18 @@ export function ApplyStep3() {
   // Lifestyle — chips for multi-member, Yes/No for single member
   // All three follow the same pattern: Set of member_ids who answer Yes + a "none" flag
   const [smokingMembers,    setSmokingMembers]    = useState<Set<string>>(new Set())
-  const [noSmoking,         setNoSmoking]         = useState(false)
+  const [noSmoking,         setNoSmoking]         = useState(true)
   const [alcoholMembers,    setAlcoholMembers]    = useState<Set<string>>(new Set())
-  const [noAlcohol,         setNoAlcohol]         = useState(false)
+  const [noAlcohol,         setNoAlcohol]         = useState(true)
   const [tobaccoMembers,    setTobaccoMembers]    = useState<Set<string>>(new Set())
-  const [noTobacco,         setNoTobacco]         = useState(false)
+  const [noTobacco,         setNoTobacco]         = useState(true)
 
   // ── Sub-step 2: Conditions (condition-first matrix) ───────────────────────
   // conditionMembers[conditionKey] = Set<member_id>
   const [conditionMembers,  setConditionMembers]  = useState<Record<string, Set<string>>>({})
   // conditionDetails[member_id][conditionKey] = freetext
   const [conditionDetails,  setConditionDetails]  = useState<Record<string, Record<string, string>>>({})
-  const [noneConditions,    setNoneConditions]    = useState(false)
+  const [noneConditions,    setNoneConditions]    = useState(true)
 
   // ── Sub-step 3: Medical History ───────────────────────────────────────────
   // Family history — proposer's parents & siblings (only shown when proposer is in memberList)
@@ -240,27 +263,29 @@ export function ApplyStep3() {
   const [parentDetails,    setParentDetails]    = useState<Record<string, string>>({})
   const [siblingConds,     setSiblingConds]     = useState<Set<string>>(new Set())
   const [siblingDetails,   setSiblingDetails]   = useState<Record<string, string>>({})
-  const [noFamilyHistory,  setNoFamilyHistory]  = useState(false)
+  const [noFamilyHistory,  setNoFamilyHistory]  = useState(true)
 
   // Surgery screening — member chips
   const [surgeryMembers,  setSurgeryMembers]  = useState<Set<string>>(new Set())
   const [surgeryDetails,  setSurgeryDetails]  = useState<Record<string, string>>({})
-  const [noSurgery,       setNoSurgery]       = useState(false)
+  const [noSurgery,       setNoSurgery]       = useState(true)
 
   // Hospitalisation — proposer only (not shown for parents plan)
   const [hospitalisedMembers, setHospitalisedMembers] = useState<Set<string>>(new Set())
   const [hospitalisedDetails, setHospitalisedDetails] = useState<Record<string, string>>({})
-  const [noHospitalised,      setNoHospitalised]      = useState(false)
+  const [noHospitalised,      setNoHospitalised]      = useState(true)
 
   // Medications screening — member chips
   const [medicationMembers, setMedicationMembers] = useState<Set<string>>(new Set())
   const [medicationDetails, setMedicationDetails] = useState<Record<string, string>>({})
-  const [noMedication,      setNoMedication]      = useState(false)
+  const [noMedication,      setNoMedication]      = useState(true)
 
   // ── Sub-step 4: NuralX ───────────────────────────────────────────────────
-  const [scanPhase,    setScanPhase]    = useState<ScanPhase>('intro')
-  const [scanProgress, setScanProgress] = useState(0)
-  const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [scanPhase,  setScanPhase]  = useState<ScanPhase>('intro')
+  const [scanUrl,    setScanUrl]    = useState<string | null>(null)
+  const [realVitals, setRealVitals] = useState<NuralXVitalsResult | null>(null)
+  const pollIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const scanStartedAtRef = useRef<number | null>(null)
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const proposer        = memberList.find((m) => m.is_proposer) ?? null
@@ -306,7 +331,7 @@ export function ApplyStep3() {
     load()
     return () => {
       cancelled = true
-      if (scanTimerRef.current) clearInterval(scanTimerRef.current)
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
     }
   }, [])
 
@@ -408,7 +433,7 @@ export function ApplyStep3() {
   }
 
   // ── Build & submit API payload ────────────────────────────────────────────
-  const submitAll = async (scanVitals?: typeof MOCK_VITALS) => {
+  const submitAll = async (scanVitals?: NuralXVitalsResult | null) => {
     setSubmitLoading(true)
     try {
       const members = memberList.map((m) => {
@@ -440,7 +465,16 @@ export function ApplyStep3() {
           surgery_details:   surgeryDetails[m.member_id] ?? null,
           is_on_medication:  medicationMembers.has(m.member_id),
           medication_details: medicationDetails[m.member_id] ?? null,
-          nuralx_vitals:     m.needs_scan && scanVitals ? scanVitals : null,
+          nuralx_vitals: m.needs_scan && scanVitals ? {
+            heart_rate:       scanVitals.heart_rate       ?? 0,
+            respiratory_rate: scanVitals.respiratory_rate ?? 0,
+            blood_pressure:   (scanVitals.blood_pressure_systolic && scanVitals.blood_pressure_diastolic)
+              ? `${scanVitals.blood_pressure_systolic}/${scanVitals.blood_pressure_diastolic}`
+              : 'N/A',
+            oxygen_saturation: scanVitals.oxygen_saturation ?? 0,
+            stress_index:      stressLabel(scanVitals.stress_index),
+            bmi_risk:          'N/A',
+          } : null,
           declaration_accurate: true,
         }
       })
@@ -460,18 +494,64 @@ export function ApplyStep3() {
   }
 
   // ── NuralX scan ───────────────────────────────────────────────────────────
-  const startScan = () => {
-    setScanPhase('scanning')
-    setScanProgress(0)
-    let p = 0
-    scanTimerRef.current = setInterval(() => {
-      p += 1.5
-      setScanProgress(Math.min(p, 100))
-      if (p >= 100) {
-        clearInterval(scanTimerRef.current!)
-        setTimeout(() => setScanPhase('result'), 500)
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+  }
+
+  const startPolling = (isMockScan: boolean) => {
+    scanStartedAtRef.current = Date.now()
+    pollIntervalRef.current = setInterval(async () => {
+      const elapsed = Date.now() - (scanStartedAtRef.current ?? 0)
+      if (elapsed > POLL_TIMEOUT_MS) {
+        stopPolling()
+        setScanPhase('timeout')
+        return
       }
-    }, 80)
+      try {
+        const res  = await fetch('/api/journey/biometrics/status')
+        const data = await res.json()
+        if (data.status === 'completed') {
+          stopPolling()
+          setRealVitals(data.vitals as NuralXVitalsResult)
+          setScanPhase('result')
+        } else if (data.status === 'timeout') {
+          stopPolling()
+          setScanPhase('timeout')
+        } else if (isMockScan && elapsed > 3000) {
+          // In test/mock mode the webhook is never called — auto-resolve
+          stopPolling()
+          setRealVitals(MOCK_VITALS_NUMERIC)
+          setScanPhase('result')
+        }
+      } catch { /* ignore transient poll errors */ }
+    }, POLL_INTERVAL_MS)
+  }
+
+  const initiateScan = async () => {
+    setScanPhase('initiating')
+    try {
+      const res  = await fetch('/api/journey/biometrics/nuralx', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to start scan')
+      setScanUrl(data.scan_url)
+      setScanPhase('waiting')
+      startPolling(!!data.is_mock)
+    } catch {
+      // Real scan unavailable — fall back to stub vitals silently
+      console.warn('[step3] NuralX initiation failed, using stub vitals')
+      setRealVitals(MOCK_VITALS_NUMERIC)
+      setScanPhase('result')
+    }
+  }
+
+  const retryScan = () => {
+    stopPolling()
+    setScanUrl(null)
+    setRealVitals(null)
+    setScanPhase('intro')
   }
 
   // ─── Loading state ────────────────────────────────────────────────────────
@@ -721,6 +801,31 @@ export function ApplyStep3() {
             </div>
 
             <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              {/* All healthy — default checked, at top */}
+              <div className="px-8 py-4 border-b border-border/60">
+                <label
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors select-none',
+                    noneConditions ? 'bg-emerald-50' : 'hover:bg-muted/40',
+                  )}
+                  onClick={() => {
+                    setNoneConditions((v) => !v)
+                    setConditionMembers({})
+                    setConditionDetails({})
+                  }}
+                >
+                  <div className={cn(
+                    'flex h-5 w-5 shrink-0 rounded border-2 items-center justify-center transition-colors',
+                    noneConditions ? 'border-emerald-500 bg-emerald-500' : 'border-border bg-white',
+                  )}>
+                    {noneConditions && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">
+                    {isMultiMember ? 'All members are healthy' : 'I have no pre-existing conditions'}
+                  </span>
+                </label>
+              </div>
+
               <div className="px-8 py-5 space-y-1">
                 {CONDITIONS.map((c) => {
                   const selectedIds = conditionMembers[c.key] ?? new Set<string>()
@@ -822,30 +927,6 @@ export function ApplyStep3() {
                   )
                 })}
 
-                {/* None of the above */}
-                <div className="pt-3 mt-1 border-t border-border/60">
-                  <label
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors select-none',
-                      noneConditions ? 'bg-emerald-50' : 'hover:bg-muted/40',
-                    )}
-                    onClick={() => {
-                      setNoneConditions((v) => !v)
-                      setConditionMembers({})
-                      setConditionDetails({})
-                    }}
-                  >
-                    <div className={cn(
-                      'flex h-5 w-5 shrink-0 rounded border-2 items-center justify-center transition-colors',
-                      noneConditions ? 'border-emerald-500 bg-emerald-500' : 'border-border bg-white',
-                    )}>
-                      {noneConditions && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                    </div>
-                    <span className="text-sm font-medium text-foreground">
-                      {isMultiMember ? 'No one has any of the above' : 'None of the above'}
-                    </span>
-                  </label>
-                </div>
               </div>
             </div>
 
@@ -1185,7 +1266,7 @@ export function ApplyStep3() {
                           {[
                             'Ensure good lighting in the room',
                             'Face the camera directly',
-                            'Stay still during the scan',
+                            'Stay still during the 30-second scan',
                             'Remove glasses if possible',
                           ].map((t) => (
                             <li key={t} className="flex items-center gap-2 text-xs text-amber-700">
@@ -1198,48 +1279,118 @@ export function ApplyStep3() {
                     </div>
                   </div>
                 </div>
-                <Button size="lg" className="w-full" rightIcon={<Camera className="h-4 w-4" />} onClick={startScan}>
-                  Start scan
+
+                <Button size="lg" className="w-full" rightIcon={<Camera className="h-4 w-4" />} onClick={initiateScan}>
+                  Start Scan
                 </Button>
               </>
             )}
 
-            {/* ── Scanning ── */}
-            {scanPhase === 'scanning' && (
-              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-                <div className="px-8 pt-6 pb-5 border-b border-border">
-                  <h1 className="text-xl font-bold text-foreground tracking-tight">Scanning…</h1>
-                  <p className="text-sm text-muted-foreground mt-1">Keep still and look at the camera</p>
-                </div>
-                <div className="px-8 py-12 text-center">
-                  <div className="relative inline-flex mb-8">
-                    <div className="h-52 w-40 rounded-3xl border-4 border-primary-800 bg-primary-50/60 flex items-center justify-center overflow-hidden relative">
-                      <motion.div
-                        animate={{ opacity: [0.4, 0.8, 0.4] }}
-                        transition={{ repeat: Infinity, duration: 1.8 }}
-                        className="h-28 w-24 rounded-full bg-primary-200/50 absolute"
-                      />
-                      <motion.div
-                        animate={{ top: ['8%', '88%', '8%'] }}
-                        transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-                        className="absolute left-2 right-2 h-px bg-primary-600/70"
-                      />
-                    </div>
+            {/* ── Initiating (calling API) ── */}
+            {scanPhase === 'initiating' && (
+              <div className="bg-white rounded-2xl border border-border shadow-sm px-8 py-16 text-center">
+                <div className="flex justify-center mb-5">
+                  <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center">
+                    <div className="h-6 w-6 border-4 border-primary-200 border-t-primary-700 rounded-full animate-spin" />
                   </div>
-                  <p className="text-sm font-semibold text-foreground mb-1.5">Analysing your vitals…</p>
-                  <div className="mx-auto max-w-[200px] bg-border/50 rounded-full h-1.5 overflow-hidden mb-2">
-                    <div
-                      className="h-full bg-primary-800 rounded-full transition-all duration-75"
-                      style={{ width: `${scanProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">{Math.round(scanProgress)}%</p>
                 </div>
+                <p className="text-base font-semibold text-foreground mb-1">Connecting to scan service…</p>
+                <p className="text-sm text-muted-foreground">This will only take a moment</p>
               </div>
             )}
 
+            {/* ── Waiting — iframe modal ── */}
+            {scanPhase === 'waiting' && scanUrl && (
+              <>
+                {/* Full-screen overlay with embedded scan */}
+                <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" style={{ height: '85vh' }}>
+                    {/* Modal header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50">
+                          <Camera className="h-4 w-4 text-primary-700" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">Vitals Scan in Progress</p>
+                          <p className="text-xs text-muted-foreground">Look at the camera and stay still</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <motion.div
+                          animate={{ opacity: [1, 0.4, 1] }}
+                          transition={{ repeat: Infinity, duration: 1.6 }}
+                          className="h-2 w-2 rounded-full bg-emerald-500"
+                        />
+                        <span className="text-xs text-muted-foreground">Waiting for results…</span>
+                      </div>
+                    </div>
+
+                    {/* iframe */}
+                    <div className="flex-1 relative bg-gray-50">
+                      <iframe
+                        src={scanUrl}
+                        className="absolute inset-0 w-full h-full border-0"
+                        allow="camera; microphone"
+                        title="NuralX Vitals Scan"
+                      />
+                    </div>
+
+                    {/* Fallback footer */}
+                    <div className="px-6 py-3 border-t border-border bg-slate-50 shrink-0 flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Scan not loading?{' '}
+                        <a
+                          href={scanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-700 underline underline-offset-2 font-medium"
+                        >
+                          Open in new tab →
+                        </a>
+                      </p>
+                      <p className="text-xs text-muted-foreground">This page updates automatically when done</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Behind the modal — status card */}
+                <div className="bg-white rounded-2xl border border-border shadow-sm px-8 py-10 text-center">
+                  <div className="flex justify-center mb-4">
+                    <motion.div
+                      animate={{ opacity: [1, 0.4, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.6 }}
+                      className="h-3 w-3 rounded-full bg-primary-600"
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">Scan in progress — awaiting results…</p>
+                  <p className="text-xs text-muted-foreground mt-1">Complete the face scan in the overlay above</p>
+                </div>
+              </>
+            )}
+
+            {/* ── Timeout ── */}
+            {scanPhase === 'timeout' && (
+              <>
+                <div className="bg-white rounded-2xl border border-border shadow-sm px-8 py-12 text-center">
+                  <div className="flex justify-center mb-4">
+                    <div className="h-14 w-14 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Zap className="h-6 w-6 text-amber-600" />
+                    </div>
+                  </div>
+                  <h2 className="text-lg font-bold text-foreground mb-1">Scan timed out</h2>
+                  <p className="text-sm text-muted-foreground">
+                    We didn&apos;t receive your scan results within 15 minutes. Please try again.
+                  </p>
+                </div>
+                <Button size="lg" className="w-full" onClick={retryScan}>
+                  Try Again
+                </Button>
+              </>
+            )}
+
             {/* ── Result ── */}
-            {scanPhase === 'result' && (
+            {scanPhase === 'result' && realVitals && (
               <>
                 <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
                   <div className="px-8 pt-6 pb-5 border-b border-border">
@@ -1257,12 +1408,12 @@ export function ApplyStep3() {
                     <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Vitals Summary</p>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { icon: Heart,       label: 'Heart Rate',     value: `${MOCK_VITALS.heart_rate} bpm` },
-                        { icon: Wind,        label: 'Respiratory',    value: `${MOCK_VITALS.respiratory_rate}/min` },
-                        { icon: Droplets,    label: 'SpO₂',           value: `${MOCK_VITALS.oxygen_saturation}%` },
-                        { icon: Activity,    label: 'Blood Pressure', value: MOCK_VITALS.blood_pressure },
-                        { icon: Zap,         label: 'Stress',         value: MOCK_VITALS.stress_index },
-                        { icon: Thermometer, label: 'BMI Risk',       value: MOCK_VITALS.bmi_risk },
+                        { icon: Heart,       label: 'Heart Rate',     value: realVitals.heart_rate     ? `${realVitals.heart_rate} bpm`      : 'N/A' },
+                        { icon: Wind,        label: 'Respiratory',    value: realVitals.respiratory_rate ? `${realVitals.respiratory_rate}/min` : 'N/A' },
+                        { icon: Droplets,    label: 'SpO₂',           value: realVitals.oxygen_saturation ? `${realVitals.oxygen_saturation}%`  : 'N/A' },
+                        { icon: Activity,    label: 'Blood Pressure', value: (realVitals.blood_pressure_systolic && realVitals.blood_pressure_diastolic) ? `${realVitals.blood_pressure_systolic}/${realVitals.blood_pressure_diastolic}` : 'N/A' },
+                        { icon: Zap,         label: 'Stress',         value: stressLabel(realVitals.stress_index) },
+                        { icon: Thermometer, label: 'Wellness',       value: realVitals.wellness_index  ? `${realVitals.wellness_index}/100`   : 'N/A' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40">
                           <Icon className="h-4 w-4 text-primary-700 shrink-0" />
@@ -1280,7 +1431,7 @@ export function ApplyStep3() {
                   className="w-full"
                   loading={submitLoading}
                   rightIcon={!submitLoading ? <ArrowRight className="h-4 w-4" /> : undefined}
-                  onClick={() => submitAll(MOCK_VITALS)}
+                  onClick={() => submitAll(realVitals)}
                 >
                   {submitLoading ? 'Saving…' : 'Continue to Plan'}
                 </Button>
