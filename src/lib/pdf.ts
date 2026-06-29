@@ -72,7 +72,7 @@ function drawText(
 }
 
 function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export async function generatePolicyPdf(data: PolicyData): Promise<Buffer> {
