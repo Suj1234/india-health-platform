@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       document_id: doc!.id,
+      url: uploadResult.secure_url,
       ocr_status: 'queued',
     })
   } catch (err) {
