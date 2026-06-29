@@ -292,6 +292,9 @@ export function ApplyStep3() {
   const [realVitals, setRealVitals] = useState<NuralXVitalsResult | null>(null)
   const pollIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const scanStartedAtRef = useRef<number | null>(null)
+  const mockTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [copied,         setCopied]        = useState(false)
+  const [showMockButton, setShowMockButton] = useState(false)
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const proposer        = memberList.find((m) => m.is_proposer) ?? null
@@ -559,6 +562,31 @@ export function ApplyStep3() {
     setRealVitals(null)
     setScanPhase('intro')
   }
+
+  const copyUrl = () => {
+    if (!scanUrl) return
+    navigator.clipboard.writeText(scanUrl).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const useMockVitals = () => {
+    stopPolling()
+    if (mockTimerRef.current) clearTimeout(mockTimerRef.current)
+    setRealVitals(MOCK_VITALS_NUMERIC)
+    setScanPhase('result')
+  }
+
+  useEffect(() => {
+    if (scanPhase === 'waiting') {
+      setShowMockButton(false)
+      const t = setTimeout(() => setShowMockButton(true), 20_000)
+      mockTimerRef.current = t
+      return () => clearTimeout(t)
+    }
+    if (mockTimerRef.current) clearTimeout(mockTimerRef.current)
+    setShowMockButton(false)
+  }, [scanPhase])
 
   // ─── Loading state ────────────────────────────────────────────────────────
 
@@ -1342,20 +1370,38 @@ export function ApplyStep3() {
                       />
                     </div>
 
-                    {/* Fallback footer */}
-                    <div className="px-6 py-3 border-t border-border bg-slate-50 shrink-0 flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        Scan not loading?{' '}
-                        <a
-                          href={scanUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-700 underline underline-offset-2 font-medium"
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t border-border bg-slate-50 shrink-0 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Scan not loading?{' '}
+                          <a
+                            href={scanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-700 underline underline-offset-2 font-medium"
+                          >
+                            Open in new tab →
+                          </a>
+                        </p>
+                        <button
+                          onClick={copyUrl}
+                          className="text-xs font-medium text-primary-700 hover:text-primary-800 transition-colors"
                         >
-                          Open in new tab →
-                        </a>
-                      </p>
-                      <p className="text-xs text-muted-foreground">This page updates automatically when done</p>
+                          {copied ? '✓ Copied' : 'Copy Link'}
+                        </button>
+                      </div>
+                      {showMockButton && (
+                        <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                          <p className="text-xs text-muted-foreground">Not receiving results?</p>
+                          <button
+                            onClick={useMockVitals}
+                            className="text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Continue with Demo Data
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
