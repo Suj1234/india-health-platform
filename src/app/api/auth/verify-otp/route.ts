@@ -73,7 +73,20 @@ export async function POST(req: NextRequest) {
         mockFn: () => mockKarzaMobileOtpStatus({ request_id: karzaRequestId, otp }),
       })
 
-      if (!statusResult.sim_details?.otp_validated) {
+      // Log full response so we can inspect structure in Vercel function logs
+      console.log('[verify-otp] Karza status raw response:', JSON.stringify(statusResult))
+
+      // Karza docs show sim_details top-level, but /details puts it inside result —
+      // check both locations defensively
+      const resultObj = statusResult.result as Record<string, unknown> | undefined
+      const simDetailsTopLevel = statusResult.sim_details
+      const simDetailsInResult = resultObj?.sim_details as { otp_validated?: boolean } | undefined
+      const otpValidated =
+        simDetailsTopLevel?.otp_validated ?? simDetailsInResult?.otp_validated ?? false
+
+      console.log('[verify-otp] otp_validated:', otpValidated, '| sim_details top-level:', simDetailsTopLevel, '| sim_details in result:', simDetailsInResult)
+
+      if (!otpValidated) {
         return NextResponse.json({ success: false, error: 'Invalid OTP' }, { status: 400 })
       }
 
