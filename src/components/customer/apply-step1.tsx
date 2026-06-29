@@ -13,7 +13,6 @@ import {
   BadgeCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { OtpInput } from '@/components/ui/otp-input'
 import { Modal } from '@/components/ui/modal'
 import { TnCModal } from '@/components/ui/tnc-modal'
 import { NeedHelpModal } from '@/components/ui/need-help-modal'
@@ -41,6 +40,7 @@ export function ApplyStep1() {
   const [otpLoading, setOtpLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [otpSuccess, setOtpSuccess] = useState(false)
+  const [debugOtp, setDebugOtp] = useState('')
 
   const resendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -79,6 +79,7 @@ export function ApplyStep1() {
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? 'Failed to send OTP')
       setOtpRefId(data.otp_ref_id)
+      setDebugOtp(data.debug_otp ?? '')
       setOtp('')
       setOtpError('')
       setOtpSuccess(false)
@@ -93,7 +94,7 @@ export function ApplyStep1() {
 
   const handleVerifyOtp = useCallback(
     async (otpValue: string) => {
-      if (otpValue.length !== 6) return
+      if (otpValue.length < 4) return
       setOtpError('')
       setOtpLoading(true)
       try {
@@ -252,7 +253,7 @@ export function ApplyStep1() {
                     Verify your mobile
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    We'll send a 6-digit OTP to confirm your number.
+                    We'll send a one-time OTP to confirm your number.
                   </p>
                 </div>
 
@@ -436,25 +437,34 @@ export function ApplyStep1() {
             </motion.div>
           ) : (
             <motion.div key="otp-form" initial={{ opacity: 1 }} className="space-y-5">
-              <OtpInput
-                length={6}
-                value={otp}
-                onChange={(v) => {
-                  setOtp(v)
-                  setOtpError('')
-                }}
-                onComplete={handleVerifyOtp}
-                disabled={otpLoading}
-                error={!!otpError}
-              />
-
-              {otpError && (
-                <p className="text-sm text-destructive text-center -mt-2">{otpError}</p>
-              )}
+              <div>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="Enter OTP"
+                  value={otp}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setOtp(v)
+                    setOtpError('')
+                  }}
+                  maxLength={6}
+                  disabled={otpLoading}
+                  autoFocus
+                  className={`w-full h-[52px] text-center text-2xl font-bold tracking-[0.4em] rounded-xl border-2 bg-white transition-all duration-150 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    otpError
+                      ? 'border-destructive focus:border-destructive focus:ring-destructive/20'
+                      : 'border-slate-200 focus:border-primary-800 focus:ring-primary-800/20'
+                  }`}
+                />
+                {otpError && (
+                  <p className="mt-1.5 text-xs font-medium text-destructive text-center">{otpError}</p>
+                )}
+              </div>
 
               <Button
                 onClick={() => handleVerifyOtp(otp)}
-                disabled={otp.length !== 6 || otpLoading}
+                disabled={otp.length < 4 || otpLoading}
                 loading={otpLoading}
                 size="lg"
                 className="w-full"
@@ -481,10 +491,12 @@ export function ApplyStep1() {
                 )}
               </div>
 
-              <p className="text-center text-xs text-muted-foreground">
-                Dev mode: OTP is always{' '}
-                <span className="font-mono font-bold text-foreground">123456</span>
-              </p>
+              {debugOtp && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Dev mode: OTP is always{' '}
+                  <span className="font-mono font-bold text-foreground">{debugOtp}</span>
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -13,7 +13,7 @@ import type { KarzaCredentials } from '@/types/insurer'
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, 'Invalid mobile number'),
-  otp: z.string().length(6, 'OTP must be 6 digits').regex(/^\d{6}$/),
+  otp: z.string().min(4).max(6).regex(/^\d{4,6}$/, 'OTP must be 4 or 6 digits'),
   otp_ref_id: z.string().uuid('Invalid OTP reference'),
   insurer_slug: z.string().min(1),
   initial_sum_insured: z.number().int().positive().optional(),

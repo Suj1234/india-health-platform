@@ -70,8 +70,7 @@ export async function POST(req: NextRequest) {
               message: 'OTP sent',
               otp_ref_id: otpRefId,
               expires_in_seconds: 300,
-              // In test/dev mode any 6-digit code works (mock always passes)
-              ...(exposeDebugOtp ? { debug_otp: '123456' } : {}),
+              // No debug_otp for Karza path — Karza delivers the real OTP via SMS
             })
           }
         } catch (karzaErr) {
