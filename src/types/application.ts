@@ -234,8 +234,10 @@ export interface StaffSession {
   sub: string
   email: string
   name: string
-  role: 'underwriter' | 'insurer_admin' | 'super_admin'
+  role: 'underwriter' | 'insurer_admin' | 'superadmin'
   insurer_id: string | null
+  impersonated_by?: string          // superadmin user ID when impersonating
+  impersonation_session_id?: string // impersonation_sessions.id
   iat: number
   exp: number
 }

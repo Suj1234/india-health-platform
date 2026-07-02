@@ -168,6 +168,7 @@ export function ApplyStep4() {
 
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(true)
+  const [coverType, setCoverType] = useState<string | undefined>(undefined)
   const [frequency, setFrequency] = useState<PaymentFrequency>('annual')
   const [showAllBenefits, setShowAllBenefits] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -187,6 +188,7 @@ export function ApplyStep4() {
         if (data.success && data.plan) {
           setPlanData(data.plan as PlanData)
           setSelectedSI(data.plan.sum_insured)
+          if (data.cover_type) setCoverType(data.cover_type as string)
         } else {
           setPlanData(MOCK_PLAN)
           setSelectedSI(MOCK_PLAN.sum_insured)
@@ -253,7 +255,7 @@ export function ApplyStep4() {
 
   if (loadingPlan) {
     return (
-      <JourneyShell currentStep={4}>
+      <JourneyShell currentStep={4} coverType={coverType}>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center mb-5">
             <div className="h-6 w-6 border-4 border-primary-200 border-t-primary-700 rounded-full animate-spin" />
@@ -268,7 +270,7 @@ export function ApplyStep4() {
   if (!planData) return null
 
   return (
-    <JourneyShell currentStep={4}>
+    <JourneyShell currentStep={4} coverType={coverType}>
 
       <div className="pb-6 mb-7 border-b border-border">
         <h1 className="text-xl font-bold text-foreground">Your Plan</h1>

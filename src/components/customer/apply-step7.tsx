@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle2, Clock, ArrowRight, Shield,
@@ -19,8 +19,8 @@ const JOURNEY_STEPS = [
   { number: 2, label: 'Identity',  shortLabel: 'Identity' },
   { number: 3, label: 'Health',    shortLabel: 'Health' },
   { number: 4, label: 'Plan',      shortLabel: 'Plan' },
-  { number: 5, label: 'Proposal',  shortLabel: 'Proposal' },
-  { number: 6, label: 'Documents', shortLabel: 'Docs' },
+  { number: 5, label: 'Documents', shortLabel: 'Docs' },
+  { number: 6, label: 'Proposal',  shortLabel: 'Proposal' },
   { number: 7, label: 'Policy',    shortLabel: 'Policy' },
 ]
 
@@ -31,6 +31,7 @@ type Phase = 'evaluating' | 'result'
 
 export function ApplyStep7() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
   const [phase, setPhase] = useState<Phase>('evaluating')
   const [decision, setDecision] = useState<STPDecision>('approved')
   const [progress, setProgress] = useState(0)
@@ -38,6 +39,7 @@ export function ApplyStep7() {
   const [evaluationDone, setEvaluationDone] = useState(false)
 
   // Plan data from DB
+  const [coverType, setCoverType] = useState<string | undefined>(undefined)
   const [planName, setPlanName] = useState('')
   const [sumInsured, setSumInsured] = useState(0)
   const [annualPremium, setAnnualPremium] = useState(0)
@@ -59,6 +61,7 @@ export function ApplyStep7() {
         setProgress(100)
         setDecision(data.decision === 'referred' ? 'referred' : 'approved')
         if (typeof data.stp_score === 'number') setStpScore(data.stp_score)
+        if (data.cover_type) setCoverType(data.cover_type as string)
         if (data.plan_name) setPlanName(data.plan_name)
         if (data.sum_insured) setSumInsured(data.sum_insured)
         if (data.annual_premium) setAnnualPremium(data.annual_premium)
@@ -77,7 +80,7 @@ export function ApplyStep7() {
   }, [])
 
   const handleProceedToPayment = () => {
-    router.push('/payment')
+    router.push(`/i/${slug}/payment`)
   }
 
   const formatCurrency = (amount: number) =>
@@ -94,7 +97,7 @@ export function ApplyStep7() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <JourneyShell currentStep={7}>
+    <JourneyShell currentStep={7} coverType={coverType}>
       <AnimatePresence mode="wait">
 
         {/* ── Evaluating ──────────────────────────────────────────────────── */}

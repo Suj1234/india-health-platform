@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { applications, documents } from '@/lib/db/schema'
 import { getCustomerSession } from '@/lib/auth'
 import { uploadDocument } from '@/lib/cloudinary'
-import { getInsurerBySlug } from '@/lib/api-router'
+import { getInsurerById } from '@/lib/api-router'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    const insurerSlug = 'careshield-india' // fallback
+    const insurer = await getInsurerById(app.insurerId)
+    const insurerSlug = insurer?.slug ?? 'care-shield'
     const uploadResult = await uploadDocument({
       fileBuffer: buffer,
       insurerSlug,

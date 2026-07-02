@@ -5,85 +5,94 @@ import { Check, Lock, BadgeCheck, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NeedHelpModal } from '@/components/ui/need-help-modal'
 
-const PHASES = [
+// Step numbers refer to URL steps (/apply/N).
+// Step 5 = Documents (ApplyStep6 component), Step 6 = Proposal (ApplyStep5 component).
+const ALL_PHASES = [
   {
-    number: 1,
+    key: 'identity',
     label: 'Identity',
     description: 'Verify & add members',
     steps: [2],
     why: 'Your mobile & PAN verify your identity. IRDAI mandates KYC for all health policies.',
+    hideForIndividual: false,
   },
   {
-    number: 2,
+    key: 'health',
     label: 'Health',
     description: 'Medical declaration',
     steps: [3],
-    why: 'Your health declaration is used to calculate your final premium accurately — no surprise changes later.',
+    why: 'Your health declaration is used to calculate your final premium accurately - no surprise changes later.',
+    hideForIndividual: false,
   },
   {
-    number: 3,
+    key: 'plan',
     label: 'Plan',
     description: 'Confirm your plan',
     steps: [4],
     why: 'Your premium is finalised based on your health data. Review and add optional riders.',
+    hideForIndividual: false,
   },
   {
-    number: 4,
-    label: 'Proposal',
-    description: 'Proposal & nominee',
-    steps: [5],
-    why: 'Review your proposal details and add a nominee for the policy.',
-  },
-  {
-    number: 5,
+    key: 'documents',
     label: 'Documents',
-    description: 'Aadhaar verification',
-    steps: [6],
+    description: 'KYC document upload',
+    steps: [5],
     why: 'Aadhaar verification is required for KYC as per IRDAI regulations.',
+    hideForIndividual: true,
   },
   {
-    number: 6,
+    key: 'proposal',
+    label: 'Proposal',
+    description: 'Nominee & declaration',
+    steps: [6],
+    why: 'Review your full proposal, add a nominee, and sign the declaration before payment.',
+    hideForIndividual: false,
+  },
+  {
+    key: 'policy',
     label: 'Policy',
     description: 'Policy issuance',
     steps: [7],
     why: 'Your policy is issued instantly after payment confirmation.',
+    hideForIndividual: false,
   },
 ]
 
-function getPhaseNumber(step: number, phases: typeof PHASES): number {
-  for (const p of phases) {
-    if (p.steps.includes(step)) return p.number
-  }
-  return phases.length + 1
-}
-
 export function JourneyShell({
   currentStep,
+  coverType,
   children,
   subBar,
 }: {
   currentStep: number
+  coverType?: string
   children: React.ReactNode
   subBar?: React.ReactNode
 }) {
   const [helpOpen, setHelpOpen] = useState(false)
 
-  const activePhases = PHASES
-  const currentPhase = getPhaseNumber(currentStep, activePhases)
-  const activePhase = activePhases.find((p) => p.number === currentPhase)
-  const progress = Math.round((currentPhase / activePhases.length) * 100)
+  const isIndividual = coverType === 'individual'
+
+  // Filter Documents phase for individual plans, then renumber sequentially
+  const activePhases = ALL_PHASES
+    .filter((p) => !(isIndividual && p.hideForIndividual))
+    .map((p, i) => ({ ...p, number: i + 1 }))
+
+  const currentPhaseEntry = activePhases.find((p) => p.steps.includes(currentStep))
+  const currentPhaseNumber = currentPhaseEntry?.number ?? activePhases.length + 1
+  const progress = Math.round((currentPhaseNumber / activePhases.length) * 100)
 
   return (
     <>
-      {/* ── Mobile / tablet phase bar ─────────────────────────────────────── */}
+      {/* Mobile / tablet phase bar */}
       <div className="lg:hidden sticky top-14 z-30 bg-white border-b border-border px-4 py-2.5 shrink-0">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] text-muted-foreground font-medium">
-            Step {currentPhase} of {activePhases.length}
+            Step {currentPhaseNumber} of {activePhases.length}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold text-primary-800">
-              {activePhase?.label}
+              {currentPhaseEntry?.label}
             </span>
             <button
               onClick={() => setHelpOpen(true)}
@@ -101,31 +110,27 @@ export function JourneyShell({
         </div>
       </div>
 
-      {/* ── Body: sidebar + content ───────────────────────────────────────── */}
+      {/* Body: sidebar + content */}
       <div className="flex flex-1 min-h-0">
 
-        {/* Left sidebar — desktop only */}
+        {/* Left sidebar - desktop only */}
         <aside className="hidden lg:flex flex-col w-[264px] xl:w-[292px] shrink-0 border-r border-border bg-white sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
 
-          {/* Sidebar header */}
           <div className="px-5 pt-6 pb-4 border-b border-slate-100">
             <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
               Your Steps
             </p>
           </div>
 
-          {/* Phase list */}
           <ol className="flex-1 px-3 pt-3 pb-2">
             {activePhases.map((phase, i) => {
-              const isDone = phase.number < currentPhase
-              const isActive = phase.number === currentPhase
-              const isUpcoming = phase.number > currentPhase
+              const isDone = phase.number < currentPhaseNumber
+              const isActive = phase.number === currentPhaseNumber
+              const isUpcoming = phase.number > currentPhaseNumber
               const isLast = i === activePhases.length - 1
 
               return (
-                <li key={phase.number} className="flex items-stretch">
-
-                  {/* Left column: circle + connector line */}
+                <li key={phase.key} className="flex items-stretch">
                   <div className="flex flex-col items-center w-9 shrink-0">
                     <div className="pt-3 shrink-0">
                       <div
@@ -149,7 +154,6 @@ export function JourneyShell({
                     )}
                   </div>
 
-                  {/* Right: text content */}
                   <div
                     className={cn(
                       'flex-1 min-w-0 ml-1 px-3 pt-3 pb-2.5 mb-1.5 rounded-xl transition-colors',
@@ -188,7 +192,6 @@ export function JourneyShell({
             })}
           </ol>
 
-          {/* Trust section */}
           <div className="mx-3 mb-5">
             <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3.5 space-y-2.5">
               <div className="flex items-center gap-2 text-[11px] text-slate-500">

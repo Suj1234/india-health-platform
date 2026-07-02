@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get('page') ?? '1'))
     const perPage = 20
 
-    const isSuperAdmin = session.role === 'super_admin'
+    const isSuperAdmin = session.role === 'superadmin'
 
     const conditions = []
     if (!isSuperAdmin && session.insurer_id) {

@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
       key_exclusions: KEY_EXCLUSIONS,
     }
 
-    return NextResponse.json({ success: true, plan })
+    return NextResponse.json({ success: true, plan, cover_type: coverType })
   } catch (err) {
     console.error('[journey/quotes GET] Error:', err)
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })

@@ -12,7 +12,7 @@ const schema = z.object({
 })
 
 const STAFF_COOKIE = 'next-auth.session-token'
-const STAFF_ROLES = ['underwriter', 'insurer_admin', 'super_admin'] as const
+const STAFF_ROLES = ['underwriter', 'insurer_admin', 'superadmin'] as const
 
 function isStaffRole(role: string): role is (typeof STAFF_ROLES)[number] {
   return STAFF_ROLES.includes(role as (typeof STAFF_ROLES)[number])

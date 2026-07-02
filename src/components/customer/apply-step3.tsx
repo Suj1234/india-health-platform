@@ -229,6 +229,7 @@ export function ApplyStep3() {
   const router = useRouter()
 
   const [pagePhase, setPagePhase]         = useState<PagePhase>('loading')
+  const [coverType, setCoverType]         = useState<string | undefined>(undefined)
   const [memberList, setMemberList]       = useState<MemberContext[]>([])
   const [subStep, setSubStep]             = useState<HealthSubStep>('vitals')
   const [completedSubs, setCompletedSubs] = useState<string[]>([])
@@ -307,7 +308,7 @@ export function ApplyStep3() {
         const res  = await fetch('/api/journey/members')
         const data = await res.json()
         if (!cancelled && data.success) {
-          init(data.members as MemberContext[])
+          init(data.members as MemberContext[], data.cover_type as string)
         } else if (!cancelled) {
           fallback()
         }
@@ -318,7 +319,8 @@ export function ApplyStep3() {
       }
     }
 
-    function init(members: MemberContext[]) {
+    function init(members: MemberContext[], ct?: string) {
+      setCoverType(ct)
       setMemberList(members)
       const m: Record<string, { height: string; weight: string }> = {}
       for (const mb of members) m[mb.member_id] = { height: '', weight: '' }
@@ -606,7 +608,7 @@ export function ApplyStep3() {
 
   if (pagePhase === 'loading') {
     return (
-      <JourneyShell currentStep={3}>
+      <JourneyShell currentStep={3} coverType={coverType}>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center mb-5">
             <div className="h-6 w-6 border-4 border-primary-200 border-t-primary-700 rounded-full animate-spin" />
@@ -623,6 +625,7 @@ export function ApplyStep3() {
   return (
     <JourneyShell
       currentStep={3}
+      coverType={coverType}
       subBar={
         <SubStepper
           steps={subSteps}

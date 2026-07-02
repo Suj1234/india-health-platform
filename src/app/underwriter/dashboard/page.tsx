@@ -49,7 +49,7 @@ export default async function UnderwriterDashboard() {
   const session = await getStaffSession()
   if (!session) redirect('/underwriter/login')
 
-  const isSuperAdmin = session.role === 'super_admin'
+  const isSuperAdmin = session.role === 'superadmin'
   const insurerFilter = (isSuperAdmin || !session.insurer_id) ? undefined : eq(applications.insurerId, session.insurer_id)
 
   const today = new Date()
