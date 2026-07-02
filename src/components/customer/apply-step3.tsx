@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, Check, Camera, Activity, Heart,
@@ -9,14 +9,13 @@ import {
   AlertTriangle, FlaskConical, Brain, Gauge, BarChart2, Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { SubStepper } from '@/components/ui/sub-stepper'
 import { cn } from '@/lib/utils'
 import { JourneyShell } from '@/components/customer/journey-shell'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type HealthSubStep = 'vitals' | 'conditions' | 'history' | 'scan'
+type HealthSubStep = 'vitals' | 'history' | 'scan'
 type ScanPhase = 'intro' | 'initiating' | 'waiting' | 'result' | 'timeout'
 type PagePhase = 'loading' | 'health'
 
@@ -44,16 +43,14 @@ interface MemberContext {
 // ─── Static data ──────────────────────────────────────────────────────────────
 
 const SUB_STEPS_WITH_SCAN = [
-  { key: 'vitals',      label: 'Vitals & Habits' },
-  { key: 'conditions',  label: 'Conditions' },
-  { key: 'history',     label: 'Medical History' },
-  { key: 'scan',        label: 'Vitals Scan' },
+  { key: 'vitals',   label: 'Health Profile' },
+  { key: 'history',  label: 'Medical History' },
+  { key: 'scan',     label: 'Vitals Scan' },
 ]
 
 const SUB_STEPS_NO_SCAN = [
-  { key: 'vitals',      label: 'Vitals & Habits' },
-  { key: 'conditions',  label: 'Conditions' },
-  { key: 'history',     label: 'Medical History' },
+  { key: 'vitals',   label: 'Health Profile' },
+  { key: 'history',  label: 'Medical History' },
 ]
 
 const CONDITIONS = [
@@ -122,11 +119,6 @@ function memberAvatarClass(gender?: string): string {
   return 'from-primary-100 to-primary-200 text-primary-800'
 }
 
-function genderSymbol(gender?: string): string {
-  if (gender === 'male')   return '♂'
-  if (gender === 'female') return '♀'
-  return ''
-}
 
 function calcBmi(height: string, weight: string): string | null {
   const h = parseFloat(height)
@@ -235,6 +227,7 @@ function MemberChips({
 
 export function ApplyStep3() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
 
   const [pagePhase, setPagePhase]         = useState<PagePhase>('loading')
   const [memberList, setMemberList]       = useState<MemberContext[]>([])
@@ -378,8 +371,8 @@ export function ApplyStep3() {
       if (e.height || e.weight) errors[m.member_id] = e
     }
     setMeasErrors(errors)
-    if (!valid || !vitalsReady) return
-    advance('vitals', 'conditions')
+    if (!valid || !vitalsReady || !conditionsAnswered) return
+    advance('vitals', 'history')
   }
 
   // ── Sub-step 2 helpers ────────────────────────────────────────────────────
@@ -501,7 +494,7 @@ export function ApplyStep3() {
     } finally {
       setSubmitLoading(false)
     }
-    router.push('/apply/4')
+    router.push(`/i/${slug}/apply/4`)
   }
 
   // ── NuralX scan ───────────────────────────────────────────────────────────
@@ -658,7 +651,6 @@ export function ApplyStep3() {
                       const errs = measErrors[m.member_id] ?? {}
                       const bmi  = calcBmi(meas.height, meas.weight)
                       const age  = getMemberAge(m.dob)
-                      const sym  = genderSymbol(m.gender)
 
                       return (
                         <div
@@ -676,12 +668,11 @@ export function ApplyStep3() {
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1">
-                                <p className="text-sm font-semibold text-foreground truncate leading-tight">{m.name}</p>
-                                {sym && <span className="text-[11px] text-muted-foreground">{sym}</span>}
-                              </div>
+                              <p className="text-sm font-semibold text-foreground truncate leading-tight">{m.name}</p>
                               <p className="text-[11px] text-muted-foreground capitalize leading-tight">
-                                {m.relation}{age !== null ? ` · ${age} yrs` : ''}
+                                {m.relation}
+                                {age !== null ? ` · ${age} Yrs` : ''}
+                                {m.gender === 'male' ? ' · Male' : m.gender === 'female' ? ' · Female' : ''}
                               </p>
                             </div>
                           </div>
@@ -809,30 +800,9 @@ export function ApplyStep3() {
               </div>
             </div>
 
-            <Button
-              size="lg"
-              className="w-full"
-              rightIcon={<ArrowRight className="h-4 w-4" />}
-              onClick={handleVitalsNext}
-              disabled={!vitalsReady}
-            >
-              Continue
-            </Button>
-          </motion.div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════
-            SUB-STEP 2 — CONDITIONS (condition-first matrix)
-        ══════════════════════════════════════════════════════════════════ */}
-        {subStep === 'conditions' && (
-          <motion.div
-            key="conditions"
-            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }}
-            className="space-y-5"
-          >
+            {/* ══ PRE-EXISTING CONDITIONS (merged into Health Profile) ══ */}
             <div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight">Pre-existing Conditions</h1>
+              <h2 className="text-xl font-bold text-foreground tracking-tight">Pre-existing Conditions</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {isMultiMember
                   ? 'Select the family members who have each condition. Leave blank if no one does.'
@@ -966,7 +936,6 @@ export function ApplyStep3() {
                     </div>
                   )
                 })}
-
               </div>
             </div>
 
@@ -974,8 +943,8 @@ export function ApplyStep3() {
               size="lg"
               className="w-full"
               rightIcon={<ArrowRight className="h-4 w-4" />}
-              disabled={!conditionsAnswered}
-              onClick={() => advance('conditions', 'history')}
+              onClick={handleVitalsNext}
+              disabled={!vitalsReady || !conditionsAnswered}
             >
               Continue
             </Button>
