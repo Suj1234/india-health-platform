@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ArrowRight, Check, Camera, Activity, Heart,
-  Wind, Droplets, Zap, Thermometer,
+  ArrowRight, Check, Activity, Heart,
+  Wind, Zap, Thermometer,
   AlertTriangle, FlaskConical, Brain, Gauge, BarChart2, Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -412,7 +412,7 @@ export function ApplyStep3() {
 
   const handleHistoryNext = () => {
     if (!historyReady) return
-    if (hasScanMember) advance('history', 'scan')
+    if (hasScanMember) { advance('history', 'scan'); initiateScan() }
     else submitAll()
   }
 
@@ -540,15 +540,20 @@ export function ApplyStep3() {
       const res  = await fetch('/api/journey/biometrics/nuralx', { method: 'POST' })
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to start scan')
+      // Mock/test mode: skip waiting entirely, resolve immediately with demo vitals
+      if (data.is_mock) {
+        setRealVitals(MOCK_VITALS_NUMERIC)
+        setScanPhase('result')
+        return
+      }
       setScanUrl(data.scan_url)
       setScanPhase('waiting')
       if (data.email_sent) {
         setEmailSent(true)
         setMaskedEmail(data.masked_email ?? null)
       }
-      startPolling(!!data.is_mock)
+      startPolling(false)
     } catch {
-      // Real scan unavailable — fall back to stub vitals silently
       console.warn('[step3] NuralX initiation failed, using stub vitals')
       setRealVitals(MOCK_VITALS_NUMERIC)
       setScanPhase('result')
@@ -559,7 +564,7 @@ export function ApplyStep3() {
     stopPolling()
     setScanUrl(null)
     setRealVitals(null)
-    setScanPhase('intro')
+    initiateScan()
   }
 
   const copyUrl = () => {
@@ -586,6 +591,17 @@ export function ApplyStep3() {
     if (mockTimerRef.current) clearTimeout(mockTimerRef.current)
     setShowMockButton(false)
   }, [scanPhase])
+
+  // Hidden demo shortcut: Shift+D resolves the scan with demo vitals (not visible in UI)
+  useEffect(() => {
+    if (subStep !== 'scan' || scanPhase !== 'waiting') return
+    const handler = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key === 'D') { e.preventDefault(); useMockVitals() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subStep, scanPhase])
 
   // ─── Loading state ────────────────────────────────────────────────────────
 
@@ -1229,71 +1245,6 @@ export function ApplyStep3() {
             exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }}
             className="space-y-5"
           >
-            {/* ── Intro ── */}
-            {scanPhase === 'intro' && (
-              <>
-                <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-                  <div className="px-8 pt-6 pb-5 border-b border-border">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 shrink-0">
-                        <Camera className="h-5 w-5 text-primary-700" strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <h1 className="text-xl font-bold text-foreground tracking-tight">Contactless Vitals Scan</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          A 30-second face scan measures your key health vitals — no wearable needed
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-border">
-                    <div className="px-8 py-6 space-y-4">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">What we measure</p>
-                      <div className="space-y-3">
-                        {[
-                          { icon: Heart,    label: 'Heart rate',           desc: 'Estimated from facial micro blood-flow' },
-                          { icon: Wind,     label: 'Respiratory rate',     desc: 'Analysed from subtle breathing movements' },
-                          { icon: Droplets, label: 'Blood oxygen (SpO₂)',  desc: 'Detected from skin micro-fluctuations' },
-                          { icon: Zap,      label: 'Stress index',         desc: 'HRV-based stress level estimation' },
-                        ].map(({ icon: Icon, label, desc }) => (
-                          <div key={label} className="flex items-start gap-3">
-                            <div className="flex h-8 w-8 shrink-0 rounded-lg bg-primary-50 items-center justify-center">
-                              <Icon className="h-4 w-4 text-primary-700" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{label}</p>
-                              <p className="text-xs text-muted-foreground">{desc}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="px-8 py-6 space-y-4">
-                      <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">Instructions</p>
-                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-                        <ul className="space-y-2.5">
-                          {[
-                            'Ensure good lighting in the room',
-                            'Face the camera directly',
-                            'Stay still during the 30-second scan',
-                            'Remove glasses if possible',
-                          ].map((t) => (
-                            <li key={t} className="flex items-center gap-2 text-xs text-amber-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-                              {t}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button size="lg" className="w-full" rightIcon={<Camera className="h-4 w-4" />} onClick={initiateScan}>
-                  Start Scan
-                </Button>
-              </>
-            )}
 
             {/* ── Initiating (calling API) ── */}
             {scanPhase === 'initiating' && (
@@ -1308,98 +1259,49 @@ export function ApplyStep3() {
               </div>
             )}
 
-            {/* ── Waiting — iframe modal ── */}
-            {scanPhase === 'waiting' && scanUrl && (
-              <>
-                {/* Full-screen overlay with embedded scan */}
-                <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" style={{ height: '85vh' }}>
-                    {/* Modal header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50">
-                          <Camera className="h-4 w-4 text-primary-700" strokeWidth={1.5} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-foreground">Vitals Scan in Progress</p>
-                          <p className="text-xs text-muted-foreground">Look at the camera and stay still</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <motion.div
-                          animate={{ opacity: [1, 0.4, 1] }}
-                          transition={{ repeat: Infinity, duration: 1.6 }}
-                          className="h-2 w-2 rounded-full bg-emerald-500"
-                        />
-                        <span className="text-xs text-muted-foreground">Waiting for results…</span>
-                      </div>
-                    </div>
-
-                    {/* iframe */}
-                    <div className="flex-1 relative bg-gray-50">
-                      <iframe
-                        src={scanUrl}
-                        className="absolute inset-0 w-full h-full border-0"
-                        allow="camera; microphone"
-                        title="NuralX Vitals Scan"
-                      />
-                    </div>
-
-                    {/* Footer */}
-                    <div className="px-6 py-3 border-t border-border bg-slate-50 shrink-0 space-y-2.5">
-                      {emailSent && maskedEmail && (
-                        <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                          <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span>Scan link sent to <strong>{maskedEmail}</strong> — open on your phone for best experience</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">
-                          Scan not loading?{' '}
-                          <a
-                            href={scanUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-700 underline underline-offset-2 font-medium"
-                          >
-                            Open in new tab →
-                          </a>
-                        </p>
-                        <button
-                          onClick={copyUrl}
-                          className="text-xs font-medium text-primary-700 hover:text-primary-800 transition-colors"
-                        >
-                          {copied ? '✓ Copied' : 'Copy Link'}
-                        </button>
-                      </div>
-                      {showMockButton && (
-                        <div className="flex items-center justify-between pt-2 border-t border-border/60">
-                          <p className="text-xs text-muted-foreground">Not receiving results?</p>
-                          <button
-                            onClick={useMockVitals}
-                            className="text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            Continue with Demo Data
-                          </button>
-                        </div>
-                      )}
-                    </div>
+            {/* ── Waiting — email confirmation card ── */}
+            {scanPhase === 'waiting' && (
+              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div className="px-8 pt-10 pb-8 flex flex-col items-center text-center gap-5">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 shrink-0">
+                    <Mail className="h-7 w-7 text-emerald-600" />
                   </div>
-                </div>
-
-                {/* Behind the modal — status card */}
-                <div className="bg-white rounded-2xl border border-border shadow-sm px-8 py-10 text-center">
-                  <div className="flex justify-center mb-4">
+                  <div className="space-y-1.5">
+                    <h2 className="text-lg font-bold text-foreground">
+                      {maskedEmail ? `Scan link sent to ${maskedEmail}` : 'Vitals scan initiated'}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Open the link on your phone to complete your 30-second vitals scan
+                    </p>
+                  </div>
+                  {scanUrl && (
+                    <div className="flex items-center gap-4 text-sm">
+                      <a
+                        href={scanUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-700 font-medium underline underline-offset-2 hover:text-primary-800 transition-colors"
+                      >
+                        Open scan link →
+                      </a>
+                      <button
+                        onClick={copyUrl}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {copied ? '✓ Copied' : 'Copy link'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
                     <motion.div
-                      animate={{ opacity: [1, 0.4, 1] }}
+                      animate={{ opacity: [1, 0.3, 1] }}
                       transition={{ repeat: Infinity, duration: 1.6 }}
-                      className="h-3 w-3 rounded-full bg-primary-600"
+                      className="h-2.5 w-2.5 rounded-full bg-primary-600"
                     />
+                    <span className="text-sm text-muted-foreground">Waiting for results…</span>
                   </div>
-                  <p className="text-sm font-semibold text-foreground">Scan in progress — awaiting results…</p>
-                  <p className="text-xs text-muted-foreground mt-1">Complete the face scan in the overlay above</p>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── Timeout ── */}
@@ -1445,8 +1347,8 @@ export function ApplyStep3() {
                         { icon: Heart,        label: 'Heart Rate',     value: realVitals.heart_rate       ? `${realVitals.heart_rate} bpm`   : 'N/A' },
                         { icon: Wind,         label: 'Respiratory',    value: realVitals.respiratory_rate ? `${realVitals.respiratory_rate}/min` : 'N/A' },
                         { icon: Activity,     label: 'Blood Pressure', value: (realVitals.blood_pressure_systolic && realVitals.blood_pressure_diastolic) ? `${realVitals.blood_pressure_systolic}/${realVitals.blood_pressure_diastolic}` : 'N/A' },
-                        { icon: Zap,          label: 'Stress',         value: stressLabel(realVitals.stress_index) },
-                        { icon: Thermometer,  label: 'Wellness',       value: realVitals.wellness_index   ? `${realVitals.wellness_index}/10` : 'N/A' },
+                        { icon: Zap,          label: 'Stress Index',   value: realVitals.stress_index !== null ? String(realVitals.stress_index) : 'N/A' },
+                        { icon: Thermometer,  label: 'Wellness',       value: realVitals.wellness_index !== null ? String(realVitals.wellness_index) : 'N/A' },
                         { icon: FlaskConical, label: 'Haemoglobin',    value: rawVal(realVitals.raw, 'hemoglobin') !== null ? `${rawVal(realVitals.raw, 'hemoglobin')} g/dL` : 'N/A' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40">
