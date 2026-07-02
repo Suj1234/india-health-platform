@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Shield, Menu, X, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function LandingNav() {
+  const { slug } = useParams<{ slug: string }>()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -45,7 +47,7 @@ export function LandingNav() {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/apply/1">
+            <Link href={`/i/${slug}/apply/1`}>
               <Button size="sm">
                 Buy Insurance
               </Button>
@@ -79,7 +81,7 @@ export function LandingNav() {
               <Phone className="h-3.5 w-3.5" />
               1800-123-4567
             </a>
-            <Link href="/apply/1" className="w-full mt-1" onClick={() => setMenuOpen(false)}>
+            <Link href={`/i/${slug}/apply/1`} className="w-full mt-1" onClick={() => setMenuOpen(false)}>
               <Button className="w-full" size="md">
                 Buy Insurance
               </Button>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Clock, Shield, Star, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,7 @@ const QUICK_BENEFITS = [
 ]
 
 export function LandingHero() {
+  const { slug } = useParams<{ slug: string }>()
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 pt-12 pb-20 sm:pt-20 sm:pb-32">
       {/* Background texture */}
@@ -74,7 +76,7 @@ export function LandingHero() {
 
               {/* CTAs */}
               <div className="mt-9 flex flex-col sm:flex-row items-center lg:items-start gap-3">
-                <Link href="/apply/1">
+                <Link href={`/i/${slug}/apply/1`}>
                   <Button
                     variant="accent"
                     size="xl"

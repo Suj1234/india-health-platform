@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calculator, Users, UserCheck, Heart, ChevronRight, Loader2, ShieldCheck, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -46,6 +47,7 @@ function calcPremium(cover: CoverType, age: AgeRange, sum: SumInsured) {
 }
 
 export function LandingQuoteCalculator() {
+  const { slug } = useParams<{ slug: string }>()
   const [cover, setCover] = useState<CoverType>('individual')
   const [age, setAge] = useState<AgeRange>('18-30')
   const [sum, setSum] = useState<SumInsured>(10)
@@ -232,7 +234,7 @@ export function LandingQuoteCalculator() {
                       ))}
 
                       <div className="flex flex-col sm:flex-row items-center gap-3">
-                        <a href="/apply/1" className="w-full sm:w-auto">
+                        <a href={`/i/${slug}/apply/1`} className="w-full sm:w-auto">
                           <Button variant="accent" size="md" className="w-full" rightIcon={<ChevronRight className="h-4 w-4" />}>
                             Apply Now — Get Exact Quote
                           </Button>

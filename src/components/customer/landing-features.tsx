@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useParams } from 'next/navigation'
 import {
   Brain,
   ScanFace,
@@ -75,6 +76,7 @@ const item = {
 }
 
 export function LandingFeatures() {
+  const { slug } = useParams<{ slug: string }>()
   return (
     <section id="features" className="bg-background py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -163,7 +165,7 @@ export function LandingFeatures() {
             </p>
           </div>
           <a
-            href="/apply/1"
+            href={`/i/${slug}/apply/1`}
             className="flex-shrink-0 inline-flex items-center gap-2 bg-accent-500 hover:bg-accent-600 text-white font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-accent-500/30 text-sm"
           >
             Start My Application
