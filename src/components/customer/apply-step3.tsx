@@ -352,7 +352,7 @@ export function ApplyStep3() {
     Object.entries(measurements).every(([, m]) => {
       const h = parseFloat(m.height)
       const w = parseFloat(m.weight)
-      return m.height && m.weight && !isNaN(h) && !isNaN(w) && h >= 100 && h <= 250 && w >= 30 && w <= 250
+      return m.height && m.weight && !isNaN(h) && !isNaN(w) && h >= 30 && h <= 250 && w >= 2 && w <= 250
     }) &&
     (lifestyleEligible.length === 0 || smokingMembers.size > 0 || noSmoking) &&
     (lifestyleEligible.length === 0 || alcoholMembers.size > 0 || noAlcohol) &&
@@ -366,8 +366,8 @@ export function ApplyStep3() {
       const h = parseFloat(meas?.height ?? '')
       const w = parseFloat(meas?.weight ?? '')
       const e: { height?: string; weight?: string } = {}
-      if (!meas?.height || isNaN(h) || h < 100 || h > 250) { e.height = 'Enter a valid height (100–250 cm)'; valid = false }
-      if (!meas?.weight || isNaN(w) || w < 30  || w > 250)  { e.weight = 'Enter a valid weight (30–250 kg)';  valid = false }
+      if (!meas?.height || isNaN(h) || h < 30 || h > 250) { e.height = 'Enter a valid height (30–250 cm)'; valid = false }
+      if (!meas?.weight || isNaN(w) || w < 2  || w > 250) { e.weight = 'Enter a valid weight (2–250 kg)';  valid = false }
       if (e.height || e.weight) errors[m.member_id] = e
     }
     setMeasErrors(errors)
