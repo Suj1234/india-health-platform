@@ -857,7 +857,7 @@ export function ApplyStep6() {
 
   if (pagePhase === 'loading') {
     return (
-      <JourneyShell currentStep={5}>
+      <JourneyShell currentStep={5} coverType={coverType}>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-14 w-14 rounded-2xl bg-primary-50 flex items-center justify-center mb-5">
             <div className="h-6 w-6 border-4 border-primary-200 border-t-primary-700 rounded-full animate-spin" />
@@ -872,7 +872,7 @@ export function ApplyStep6() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <JourneyShell currentStep={5}>
+    <JourneyShell currentStep={5} coverType={coverType}>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

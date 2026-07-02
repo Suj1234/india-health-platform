@@ -22,7 +22,7 @@ async function seedUw() {
   try {
     // Resolve insurer
     const [insurer] = await db.select({ id: insurers.id }).from(insurers)
-      .where(eq(insurers.slug, 'careshield-india')).limit(1)
+      .where(eq(insurers.slug, 'care-shield')).limit(1)
     if (!insurer) {
       return NextResponse.json({ success: false, error: 'Insurer not found. Restart the dev server first.' }, { status: 404 })
     }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield,
@@ -22,6 +22,7 @@ type Phase = 'entry' | 'verified'
 export function ApplyStep1() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { slug } = useParams<{ slug: string }>()
 
   const [phase, setPhase] = useState<Phase>('entry')
   const [mobile, setMobile] = useState('')
@@ -74,7 +75,7 @@ export function ApplyStep1() {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile, insurer_slug: 'careshield-india' }),
+        body: JSON.stringify({ mobile, insurer_slug: slug }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? 'Failed to send OTP')
@@ -105,7 +106,7 @@ export function ApplyStep1() {
             mobile,
             otp: otpValue,
             otp_ref_id: otpRefId,
-            insurer_slug: 'careshield-india',
+            insurer_slug: slug,
             initial_sum_insured: searchParams.get('sum_insured')
               ? Number(searchParams.get('sum_insured'))
               : undefined,
@@ -121,7 +122,7 @@ export function ApplyStep1() {
         setTimeout(() => {
           setOtpOpen(false)
           setPhase('verified')
-          setTimeout(() => router.push('/apply/2'), 800)
+          setTimeout(() => router.push(`/i/${slug}/apply/2`), 800)
         }, 1000)
       } catch (err) {
         setOtpError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.')

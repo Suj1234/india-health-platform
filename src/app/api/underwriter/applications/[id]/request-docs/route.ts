@@ -35,7 +35,7 @@ export async function POST(
 
     const [app] = await db.select().from(applications).where(eq(applications.id, id)).limit(1)
     if (!app) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-    if (session.role !== 'super_admin' && session.insurer_id && app.insurerId !== session.insurer_id) {
+    if (session.role !== 'superadmin' && session.insurer_id && app.insurerId !== session.insurer_id) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
     if (!['uw_pending'].includes(app.status)) {

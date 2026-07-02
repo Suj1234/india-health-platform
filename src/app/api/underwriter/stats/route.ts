@@ -10,7 +10,7 @@ export async function GET() {
     if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const insurerId = session.insurer_id
-    const isSuperAdmin = session.role === 'super_admin'
+    const isSuperAdmin = session.role === 'superadmin'
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)

@@ -1,0 +1,30 @@
+# Dependencies — reinstalled inside the image
+node_modules
+
+# Build output — produced fresh inside the image
+.next
+
+# Local environment files — NEVER bake secrets into the image
+.env.local
+.env*.local
+.env.production
+
+# Git
+.git
+.gitignore
+
+# Local dev database (PGlite)
+.local-db
+
+# Dev tooling / docs — not needed at runtime
+docs
+scripts
+drizzle
+*.md
+CLAUDE.md
+
+# IDE / OS
+.vscode
+.idea
+*.DS_Store
+Thumbs.db

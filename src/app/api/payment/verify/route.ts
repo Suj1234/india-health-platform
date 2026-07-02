@@ -10,7 +10,7 @@ import { uploadPolicyPdf } from '@/lib/cloudinary'
 import { sendPolicyEmail } from '@/lib/brevo'
 import { generatePolicyNumber } from '@/lib/utils'
 import type { QuoteOption } from '@/types/application'
-import { quotes } from '@/lib/db/schema'
+import { quotes, insurers } from '@/lib/db/schema'
 
 const schema = z.object({
   razorpay_payment_id: z.string().min(1),
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
 
       const uploadResult = await uploadPolicyPdf({
         pdfBuffer: Buffer.from(pdfBytes),
-        insurerSlug: 'careshield-india',
+        insurerSlug: (await db.select({ slug: insurers.slug }).from(insurers).where(eq(insurers.id, app.insurerId)).limit(1))[0]?.slug ?? 'care-shield',
         policyNumber,
       })
       policyDocumentUrl = uploadResult.secure_url

@@ -201,8 +201,8 @@ The router checks insurer mode and credential presence, decides real vs mock, lo
 | 2 | `/apply/2` | Identity + Members | PAN verify → proposer details → cover type → member collection |
 | 3 | `/apply/3` | Health + NuralX | Per-member health declaration → NuralX vitals scan (cover-type-aware) |
 | 4 | `/apply/4` | Plan Confirmation | Single bundled plan + optional riders (premium finalised from health data) |
-| 5 | `/apply/5` | Proposal + Nominee | Review proposal details → add nominee |
-| 6 | `/apply/6` | Documents | Upload KYC docs (cover-type-aware: proposer + insured members) |
+| 5 | `/apply/5` | Documents | Upload KYC docs (cover-type-aware: insured members; proposer KYC done at step 2) |
+| 6 | `/apply/6` | Proposal + Nominee | Add nominee → review proposal details + declaration |
 | 7 | `/apply/7` | STP / Payment / Policy | STP evaluation → approved: payment → policy; referred: UW queue |
 
 **Health before Plan is intentional.** Premium is finalised only after health data (smoker loading, PED risk, member ages). Showing plan first creates a "premium surprise" after declaration and causes drop-off.

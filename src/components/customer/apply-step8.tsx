@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle2, Clock, ArrowRight, Shield,
@@ -32,6 +32,7 @@ type Phase = 'evaluating' | 'result'
 
 export function ApplyStep8() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
   const [phase, setPhase] = useState<Phase>('evaluating')
   const [decision, setDecision] = useState<STPDecision>('approved')
   const [progress, setProgress] = useState(0)
@@ -66,7 +67,7 @@ export function ApplyStep8() {
   }, [])
 
   const handleProceedToPayment = () => {
-    router.push('/payment')
+    router.push(`/i/${slug}/payment`)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────

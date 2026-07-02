@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { applications, quotes } from '@/lib/db/schema'
 import { getCustomerSession } from '@/lib/auth'
-import type { IAdoreSummary, QuoteRider } from '@/types/application'
+import type { IAdoreSummary, QuoteRider, InsuredMember } from '@/types/application'
 
 export async function GET(_req: NextRequest) {
   try {
@@ -20,6 +20,8 @@ export async function GET(_req: NextRequest) {
         mobile: applications.mobile,
         email: applications.email,
         coverType: applications.coverType,
+        proposerIsInsured: applications.proposerIsInsured,
+        membersData: applications.membersData,
         iadoreSummary: applications.iadoreSummary,
         selectedQuoteId: applications.selectedQuoteId,
       })
@@ -30,6 +32,7 @@ export async function GET(_req: NextRequest) {
     if (!app) return NextResponse.json({ success: false, error: 'Application not found' }, { status: 404 })
 
     const summary = app.iadoreSummary as IAdoreSummary | null
+    const members = (app.membersData as InsuredMember[]) ?? []
 
     let quote = null
     if (app.selectedQuoteId) {
@@ -58,6 +61,14 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({
       success: true,
       cover_type: app.coverType ?? 'individual',
+      proposer_is_insured: app.proposerIsInsured ?? true,
+      members: members.map((m) => ({
+        member_id: m.member_id,
+        name: m.name,
+        relation: m.relation,
+        dob: m.dob,
+        gender: m.gender,
+      })),
       proposer: {
         name: app.name ?? null,
         dob: app.dob ?? null,
@@ -99,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     const [app] = await db.select().from(applications).where(eq(applications.id, session.application_id)).limit(1)
     if (!app) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
-    if (!['medical_done', 'quote_selected'].includes(app.status)) {
+    if (!['medical_done', 'quote_selected', 'docs_uploaded'].includes(app.status)) {
       return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 409 })
     }
 
