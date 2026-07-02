@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, CheckCircle2, CreditCard, Lock,
@@ -96,8 +96,6 @@ const COVER_TYPES: {
 
 export function ApplyStep2() {
   const router = useRouter()
-  const { slug } = useParams<{ slug: string }>()
-
   const [contentPhase, setContentPhase] = useState<ContentPhase>('loading')
 
   // iAdore job tracking (live mode only)
@@ -309,7 +307,7 @@ export function ApplyStep2() {
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      router.push(`/i/${slug}/apply/3`)
+      router.push('/apply/3')
     } catch (err) {
       setMembersError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setSubmitLoading(false)
