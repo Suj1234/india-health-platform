@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ArrowRight, Check, Activity, Heart,
-  Wind, Zap, Thermometer,
+  ArrowRight, Check, Camera, Activity, Heart,
+  Wind, Droplets, Zap, Thermometer,
   AlertTriangle, FlaskConical, Brain, Gauge, BarChart2, Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -412,7 +412,7 @@ export function ApplyStep3() {
 
   const handleHistoryNext = () => {
     if (!historyReady) return
-    if (hasScanMember) { advance('history', 'scan'); initiateScan() }
+    if (hasScanMember) advance('history', 'scan')
     else submitAll()
   }
 
@@ -1246,6 +1246,77 @@ export function ApplyStep3() {
             className="space-y-5"
           >
 
+            {/* ── Intro ── */}
+            {scanPhase === 'intro' && (
+              <>
+                <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+                  <div className="px-8 pt-6 pb-5 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 shrink-0">
+                        <Camera className="h-5 w-5 text-primary-700" strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <h1 className="text-xl font-bold text-foreground tracking-tight">Contactless Vitals Scan</h1>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          A 30-second face scan measures your key health vitals — no wearable needed
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div className="px-8 py-6 space-y-4">
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">What we measure</p>
+                      <div className="space-y-3">
+                        {[
+                          { icon: Heart,    label: 'Heart rate',           desc: 'Estimated from facial micro blood-flow' },
+                          { icon: Wind,     label: 'Respiratory rate',     desc: 'Analysed from subtle breathing movements' },
+                          { icon: Droplets, label: 'Blood oxygen (SpO₂)',  desc: 'Detected from skin micro-fluctuations' },
+                          { icon: Zap,      label: 'Stress index',         desc: 'HRV-based stress level estimation' },
+                        ].map(({ icon: Icon, label, desc }) => (
+                          <div key={label} className="flex items-start gap-3">
+                            <div className="flex h-8 w-8 shrink-0 rounded-lg bg-primary-50 items-center justify-center">
+                              <Icon className="h-4 w-4 text-primary-700" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{label}</p>
+                              <p className="text-xs text-muted-foreground">{desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="px-8 py-6 space-y-4">
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">Instructions</p>
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                        <ul className="space-y-2.5">
+                          {[
+                            'Ensure good lighting in the room',
+                            'Face the camera directly',
+                            'Stay still during the 30-second scan',
+                            'Remove glasses if possible',
+                          ].map((t) => (
+                            <li key={t} className="flex items-center gap-2 text-xs text-amber-700">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                              {t}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                        <p className="text-xs text-emerald-700">
+                          A scan link will be sent to your registered email — open it on your phone for the best experience.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Button size="lg" className="w-full" rightIcon={<Mail className="h-4 w-4" />} onClick={initiateScan}>
+                  Send Scan Link
+                </Button>
+              </>
+            )}
+
             {/* ── Initiating (calling API) ── */}
             {scanPhase === 'initiating' && (
               <div className="bg-white rounded-2xl border border-border shadow-sm px-8 py-16 text-center">
@@ -1412,7 +1483,7 @@ export function ApplyStep3() {
                             <AlertTriangle className={cn('h-3.5 w-3.5 shrink-0', flagged ? 'text-red-500' : 'text-emerald-500')} />
                             <span className={cn('text-xs flex-1', flagged ? 'text-red-700' : 'text-emerald-700')}>{label}</span>
                             <span className={cn('text-xs font-bold', flagged ? 'text-red-700' : 'text-emerald-700')}>
-                              {val === null ? 'N/A' : val === 0 ? 'Clear' : val === 1 ? 'Flagged' : `Sev. ${val}`}
+                              {val === null ? 'N/A' : String(val)}
                             </span>
                           </div>
                         )
