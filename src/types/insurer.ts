@@ -56,7 +56,11 @@ export interface InsurerConfig {
     name: string
     description: string
     is_active: boolean
+    is_bundled: boolean  // true = shown as "Included" (no customer choice); false = not shown
   }>
+
+  // Font
+  font_family?: string            // Google Font family name, e.g. 'Poppins'
 }
 
 export interface IAdoreCredentials {
@@ -100,6 +104,11 @@ export interface STPCredentials {
   insurer_code?: string
 }
 
+export interface PerfiosCredentials {
+  base_url: string
+  api_key: string
+}
+
 export type ApiCredentials =
   | IAdoreCredentials
   | KarzaCredentials
@@ -108,3 +117,4 @@ export type ApiCredentials =
   | NuralXCredentials
   | PIVCCredentials
   | STPCredentials
+  | PerfiosCredentials

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, Check, Clock, Info, Shield, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ interface RiderOption {
   annual_premium: number
   rate_percent?: number
   max_sa_note?: string
+  is_bundled: boolean
 }
 
 // ─── Static mock data ─────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ const RIDERS: RiderOption[] = [
     annual_premium: 0,
     rate_percent: 0.36,
     max_sa_note: 'Max: ₹5,00,000 (must not exceed base sum insured)',
+    is_bundled: false,
   },
   {
     code: 'PA',
@@ -89,13 +91,15 @@ const RIDERS: RiderOption[] = [
     annual_premium: 0,
     rate_percent: 0.13,
     max_sa_note: 'Max: ₹5,00,000 (must not exceed base sum insured)',
+    is_bundled: false,
   },
   {
     code: 'PWB',
     name: 'Premium Waiver Benefit',
-    description: 'All future premiums waived on permanent total disability. 3% of base premium as rider cost.',
+    description: 'All future premiums waived on permanent total disability.',
     has_sa_input: false,
     annual_premium: 420,
+    is_bundled: true,
   },
   {
     code: 'HDC',
@@ -103,6 +107,7 @@ const RIDERS: RiderOption[] = [
     description: '₹500 per day during hospitalisation, up to 30 days per policy year from day 1 of admission.',
     has_sa_input: false,
     annual_premium: 1200,
+    is_bundled: true,
   },
 ]
 
@@ -156,21 +161,14 @@ function formatINR(v: number) {
   return `₹${v.toLocaleString('en-IN')}`
 }
 
-function computeRiderPremium(rider: RiderOption, saValue: string | undefined): number {
-  if (!rider.has_sa_input) return rider.annual_premium
-  const sa = parseInt(saValue?.replace(/[^0-9]/g, '') ?? '0') || 0
-  return Math.round(sa * (rider.rate_percent ?? 0) / 100)
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ApplyStep4() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
 
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(true)
-  const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set())
-  const [riderSAValues, setRiderSAValues] = useState<Record<string, string>>({})
   const [frequency, setFrequency] = useState<PaymentFrequency>('annual')
   const [showAllBenefits, setShowAllBenefits] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -203,13 +201,7 @@ export function ApplyStep4() {
     fetchQuote()
   }, [])
 
-  const toggleRider = (code: string) => {
-    setSelectedRiders((prev) => {
-      const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
-      return next
-    })
-  }
+  const bundledRiders = RIDERS.filter((r) => r.is_bundled)
 
   // Premium calculations — scaled by selected SI relative to API-returned base SI
   const apiBasePremium = planData?.base_annual_premium ?? 0
@@ -222,21 +214,15 @@ export function ApplyStep4() {
     return selectedSI / apiBaseSI  // linear for custom values
   })()
   const basePremium = Math.round(apiBasePremium * siMultiplier)
-  const riderTotal = RIDERS.filter((r) => selectedRiders.has(r.code)).reduce(
-    (sum, rider) => sum + computeRiderPremium(rider, riderSAValues[rider.code]),
-    0
-  )
   const freqConfig = FREQUENCY_OPTIONS.find((f) => f.key === frequency)!
   const { loading: freqLoading, divisor } = freqConfig
   const isAnnual = frequency === 'annual'
 
   const perBase  = basePremium > 0 ? Math.round(basePremium * freqLoading / divisor) : 0
-  const perRider = riderTotal > 0 ? Math.round(riderTotal * freqLoading / divisor) : 0
-  const perNet   = perBase + perRider
-  const perGST   = perNet > 0 ? Math.round(perNet * ((planData?.gst_percent ?? 18) / 100)) : 0
+  const perGST   = perBase > 0 ? Math.round(perBase * ((planData?.gst_percent ?? 18) / 100)) : 0
   const perFee   = basePremium > 0 ? Math.round((planData?.policy_fee ?? 200) * freqLoading / divisor) : 0
-  const perTotal = perNet > 0 ? perNet + perGST + perFee : 0
-  const annualTotal = basePremium > 0 ? Math.round((basePremium + riderTotal) * 1.18) + (planData?.policy_fee ?? 200) : 0
+  const perTotal = perBase > 0 ? perBase + perGST + perFee : 0
+  const annualTotal = basePremium > 0 ? Math.round(basePremium * 1.18) + (planData?.policy_fee ?? 200) : 0
 
   const sfx = PER_PAYMENT_SUFFIX[frequency]
   const fmt = (v: number) => `${formatINR(v)}${isAnnual ? '' : sfx}`
@@ -251,10 +237,7 @@ export function ApplyStep4() {
         body: JSON.stringify({
           plan_code: planData.plan_code,
           sum_insured: selectedSI,
-          riders: Array.from(selectedRiders).map((code) => ({
-            code,
-            sa: riderSAValues[code] ? parseInt(riderSAValues[code]) : null,
-          })),
+          riders: bundledRiders.map((r) => ({ code: r.code, sa: null })),
           payment_frequency: frequency,
           total_premium: perTotal,
         }),
@@ -264,7 +247,7 @@ export function ApplyStep4() {
     } finally {
       setLoading(false)
     }
-    router.push('/apply/5')
+    router.push(`/i/${slug}/apply/5`)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -291,7 +274,7 @@ export function ApplyStep4() {
       <div className="pb-6 mb-7 border-b border-border">
         <h1 className="text-xl font-bold text-foreground">Your Plan</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your premium has been finalised based on your health assessment. Add optional riders to customise your cover.
+          Your premium has been finalised based on your health assessment. Review your plan and confirm to continue.
         </p>
       </div>
 
@@ -458,81 +441,47 @@ export function ApplyStep4() {
             </div>
           </div>
 
-          {/* Optional riders */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">
-              Optional Riders
-            </p>
-            <div className="space-y-3">
-              {RIDERS.map((rider) => {
-                const isOn = selectedRiders.has(rider.code)
-                const riderPremium = computeRiderPremium(rider, riderSAValues[rider.code])
-
-                return (
+          {/* Included riders */}
+          {bundledRiders.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">
+                Included Riders
+              </p>
+              <div className="space-y-3">
+                {bundledRiders.map((rider) => (
                   <div
                     key={rider.code}
-                    className={cn(
-                      'rounded-2xl border bg-white transition-all duration-200',
-                      isOn ? 'border-primary-800' : 'border-border shadow-sm'
-                    )}
+                    className="rounded-2xl border border-border bg-white shadow-sm"
                   >
-                    <div
-                      onClick={() => toggleRider(rider.code)}
-                      className="flex items-start gap-3 p-4 cursor-pointer select-none"
-                    >
-                      <div className={cn(
-                        'mt-0.5 h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors',
-                        isOn ? 'border-primary-800 bg-primary-800' : 'border-border bg-white'
-                      )}>
-                        {isOn && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                    <div className="flex items-start gap-3 p-4">
+                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded bg-emerald-500 flex items-center justify-center">
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">
-                          {rider.name}
-                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">({rider.code})</span>
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">
+                            {rider.name}
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">({rider.code})</span>
+                          </p>
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                            Included
+                          </span>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{rider.description}</p>
                       </div>
-                      {isOn && riderPremium > 0 && (
-                        <p className="text-sm font-bold text-foreground shrink-0 whitespace-nowrap">
-                          +{formatINR(riderPremium)}
-                          <span className="text-[10px] font-normal text-muted-foreground">/yr</span>
-                        </p>
-                      )}
                     </div>
-
-                    {isOn && rider.has_sa_input && (
-                      <div className="px-4 pb-4 border-t border-border">
-                        <label className="block text-xs font-medium text-foreground mb-1.5 mt-3">
-                          Rider Sum Assured (₹)
-                        </label>
-                        <input
-                          type="number"
-                          value={riderSAValues[rider.code] ?? ''}
-                          onChange={(e) => setRiderSAValues((prev) => ({ ...prev, [rider.code]: e.target.value }))}
-                          placeholder="0"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-800/20 focus:border-primary-800 transition-colors"
-                        />
-                        {rider.max_sa_note && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5">{rider.max_sa_note}</p>
-                        )}
-                      </div>
-                    )}
                   </div>
-                )
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Mobile: premium panel inline */}
           <div className="xl:hidden">
             <PremiumPanel
               basePremium={basePremium}
-              riderTotal={riderTotal}
               perTotal={perTotal}
               perBase={perBase}
-              perRider={perRider}
               perGST={perGST}
               perFee={perFee}
               annualTotal={annualTotal}
@@ -552,10 +501,8 @@ export function ApplyStep4() {
           <div className="sticky top-8">
             <PremiumPanel
               basePremium={basePremium}
-              riderTotal={riderTotal}
               perTotal={perTotal}
               perBase={perBase}
-              perRider={perRider}
               perGST={perGST}
               perFee={perFee}
               annualTotal={annualTotal}
@@ -578,14 +525,12 @@ export function ApplyStep4() {
 // ─── Premium panel ─────────────────────────────────────────────────────────────
 
 function PremiumPanel({
-  basePremium, riderTotal, perTotal, perBase, perRider, perGST, perFee,
+  basePremium, perTotal, perBase, perGST, perFee,
   annualTotal, frequency, isAnnual, sfx, fmt, onFrequencyChange, loading, onContinue,
 }: {
   basePremium: number
-  riderTotal: number
   perTotal: number
   perBase: number
-  perRider: number
   perGST: number
   perFee: number
   annualTotal: number
@@ -635,12 +580,6 @@ function PremiumPanel({
           <span className="text-xs text-muted-foreground">Base premium</span>
           <span className="text-xs text-foreground">{hasData ? fmt(perBase) : '—'}</span>
         </div>
-        {perRider > 0 && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">Rider premium</span>
-            <span className="text-xs text-foreground">+{fmt(perRider)}</span>
-          </div>
-        )}
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">GST @ 18%</span>
           <span className="text-xs text-foreground">{hasData ? `+${fmt(perGST)}` : '—'}</span>
