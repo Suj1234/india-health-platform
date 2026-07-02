@@ -594,7 +594,7 @@ export function ApplyStep3() {
 
   // Hidden demo shortcut: Shift+D resolves the scan with demo vitals (not visible in UI)
   useEffect(() => {
-    if (subStep !== 'scan' || scanPhase !== 'waiting') return
+    if (subStep !== 'scan' || scanPhase === 'result') return
     const handler = (e: KeyboardEvent) => {
       if (e.shiftKey && e.key === 'D') { e.preventDefault(); useMockVitals() }
     }
@@ -1437,18 +1437,22 @@ export function ApplyStep3() {
                   <div className="px-8 py-6">
                     <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-4">Underwriter Summary</p>
 
-                    {/* Clinical markers */}
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { icon: FlaskConical, label: 'HbA1c',         rawKey: 'hemoglobinA1c',         fmt: (v: number) => `${v}%` },
-                        { icon: Brain,        label: 'Norm. Stress',  rawKey: 'normalizedStressIndex', fmt: (v: number) => `${v}/100` },
-                        { icon: Gauge,        label: 'MAP',            rawKey: 'meanArterialPressure',  fmt: (v: number) => `${v} mmHg` },
-                        { icon: Gauge,        label: 'Pulse Pressure', rawKey: 'pulsePressure',         fmt: (v: number) => `${v} mmHg` },
-                        { icon: Activity,     label: 'Cardiac Load',   rawKey: 'cardiacWorkload',       fmt: (v: number) => `${v}` },
-                        { icon: BarChart2,    label: 'SDNN',           rawKey: 'sdnn',                  fmt: (v: number) => `${v} ms` },
-                        { icon: BarChart2,    label: 'RMSSD',          rawKey: 'rmssd',                 fmt: (v: number) => `${v} ms` },
-                        { icon: Zap,          label: 'SNS Index',      rawKey: 'snsIndex',              fmt: (v: number) => `${v}` },
-                        { icon: Zap,          label: 'PNS Index',      rawKey: 'pnsIndex',              fmt: (v: number) => `${v}` },
+                        { icon: FlaskConical,  label: 'HbA1c',            rawKey: 'hemoglobinA1c',           fmt: (v: number) => `${v}%` },
+                        { icon: Brain,         label: 'Norm. Stress',     rawKey: 'normalizedStressIndex',   fmt: (v: number) => `${v}` },
+                        { icon: Gauge,         label: 'MAP',              rawKey: 'meanArterialPressure',    fmt: (v: number) => `${v} mmHg` },
+                        { icon: Gauge,         label: 'Pulse Pressure',   rawKey: 'pulsePressure',           fmt: (v: number) => `${v} mmHg` },
+                        { icon: Activity,      label: 'Cardiac Load',     rawKey: 'cardiacWorkload',         fmt: (v: number) => `${v}` },
+                        { icon: BarChart2,     label: 'SDNN',             rawKey: 'sdnn',                    fmt: (v: number) => `${v} ms` },
+                        { icon: BarChart2,     label: 'RMSSD',            rawKey: 'rmssd',                   fmt: (v: number) => `${v} ms` },
+                        { icon: Zap,           label: 'SNS Index',        rawKey: 'snsIndex',                fmt: (v: number) => `${v}` },
+                        { icon: Zap,           label: 'PNS Index',        rawKey: 'pnsIndex',                fmt: (v: number) => `${v}` },
+                        { icon: AlertTriangle, label: 'BP Risk',          rawKey: 'highBloodPressureRisk',   fmt: (v: number) => `${v}` },
+                        { icon: AlertTriangle, label: 'Haemoglobin Risk', rawKey: 'lowHemoglobinRisk',       fmt: (v: number) => `${v}` },
+                        { icon: AlertTriangle, label: 'HbA1c Risk',       rawKey: 'highHemoglobinA1CRisk',   fmt: (v: number) => `${v}` },
+                        { icon: AlertTriangle, label: 'Glucose Risk',     rawKey: 'highFastingGlucoseRisk',  fmt: (v: number) => `${v}` },
+                        { icon: AlertTriangle, label: 'Cholesterol Risk', rawKey: 'highTotalCholesterolRisk', fmt: (v: number) => `${v}` },
                       ].map(({ icon: Icon, label, rawKey, fmt }) => {
                         const v = rawVal(realVitals.raw, rawKey)
                         return (
@@ -1458,33 +1462,6 @@ export function ApplyStep3() {
                               <p className="text-[10px] text-muted-foreground">{label}</p>
                               <p className="text-sm font-semibold text-foreground">{v !== null ? fmt(v) : 'N/A'}</p>
                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Risk flags */}
-                    <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mb-3 mt-5">Risk Flags</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { label: 'High Blood Pressure',  rawKey: 'highBloodPressureRisk' },
-                        { label: 'Low Haemoglobin',      rawKey: 'lowHemoglobinRisk' },
-                        { label: 'High HbA1c',           rawKey: 'highHemoglobinA1CRisk' },
-                        { label: 'High Fasting Glucose', rawKey: 'highFastingGlucoseRisk' },
-                        { label: 'High Cholesterol',     rawKey: 'highTotalCholesterolRisk' },
-                      ].map(({ label, rawKey }) => {
-                        const val = rawVal(realVitals.raw, rawKey)
-                        const flagged = val !== null && val > 0
-                        return (
-                          <div key={label} className={cn(
-                            'flex items-center gap-2 px-3 py-2.5 rounded-xl',
-                            flagged ? 'bg-red-50' : 'bg-emerald-50',
-                          )}>
-                            <AlertTriangle className={cn('h-3.5 w-3.5 shrink-0', flagged ? 'text-red-500' : 'text-emerald-500')} />
-                            <span className={cn('text-xs flex-1', flagged ? 'text-red-700' : 'text-emerald-700')}>{label}</span>
-                            <span className={cn('text-xs font-bold', flagged ? 'text-red-700' : 'text-emerald-700')}>
-                              {val === null ? 'N/A' : String(val)}
-                            </span>
                           </div>
                         )
                       })}

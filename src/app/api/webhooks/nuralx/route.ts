@@ -67,6 +67,13 @@ export async function POST(req: NextRequest) {
     const isTimeout = body.status === 'timeout' || body.status === 'error'
 
     if (isTimeout) {
+      // Guard against stale callbacks from a previous scan overwriting a freshly-reset session.
+      // If the session was updated within the last 30 seconds it was just re-initiated — skip.
+      const ageMs = Date.now() - new Date(session.updatedAt ?? session.createdAt).getTime()
+      if (ageMs < 30_000) {
+        console.log(`[webhooks/nuralx] Ignoring stale timeout — session reset ${Math.round(ageMs / 1000)}s ago`)
+        return NextResponse.json({ received: true })
+      }
       await db
         .update(biometricSessions)
         .set({ status: 'timeout', updatedAt: new Date() })
