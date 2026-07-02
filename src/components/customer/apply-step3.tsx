@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, Check, Camera, Activity, Heart,
@@ -227,7 +227,6 @@ function MemberChips({
 
 export function ApplyStep3() {
   const router = useRouter()
-  const { slug } = useParams<{ slug: string }>()
 
   const [pagePhase, setPagePhase]         = useState<PagePhase>('loading')
   const [memberList, setMemberList]       = useState<MemberContext[]>([])
@@ -494,7 +493,7 @@ export function ApplyStep3() {
     } finally {
       setSubmitLoading(false)
     }
-    router.push(`/i/${slug}/apply/4`)
+    router.push('/apply/4')
   }
 
   // ── NuralX scan ───────────────────────────────────────────────────────────
