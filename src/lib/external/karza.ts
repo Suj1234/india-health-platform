@@ -169,3 +169,310 @@ export async function pollOcrJob(
   if (!res.ok) throw new Error(`Karza OCR poll failed: ${res.status}`)
   return res.json() as Promise<{ status: string; result?: Record<string, string>; confidence?: number }>
 }
+
+// ── Mobile Form Prefill ───────────────────────────────────────────────────────
+
+export interface KarzaMobilePrefillAddress {
+  line_1: string
+  line_2: string
+  street_name: string
+  zip: string
+  city: string
+  state: string
+  country: string
+  full: string
+}
+
+export interface KarzaMobilePrefillResult {
+  mobileNumber: string
+  pan: string
+  panDetails: {
+    fullName: string
+    splitName: string[]
+    address: KarzaMobilePrefillAddress
+    gender: string
+    dob: string
+    aadhaarLink: boolean
+  }
+}
+
+export interface KarzaMobilePrefillResponse {
+  requestId: string
+  result: KarzaMobilePrefillResult
+  statusCode: number
+  clientData?: { caseId: string }
+}
+
+export async function mobilePrefill(
+  creds: KarzaCredentials,
+  params: { mobile: string; caseId?: string }
+): Promise<KarzaMobilePrefillResponse> {
+  return karzaFetch(creds, '/v3/mobile-form-prefill', {
+    mobile: params.mobile,
+    consent: 'Y',
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+// ── PAN Profile ───────────────────────────────────────────────────────────────
+
+export interface KarzaPanProfileAddress {
+  buildingName: string
+  locality: string
+  streetName: string
+  pinCode: string
+  city: string
+  state: string
+  country: string
+}
+
+export interface KarzaPanProfileResult {
+  pan: string
+  name: string
+  firstName: string
+  middleName: string
+  lastName: string
+  gender: string
+  aadhaarLinked: boolean
+  aadhaarMatch: boolean | null
+  dob: string
+  address: KarzaPanProfileAddress
+  mobileNo: string | null
+  emailId: string | null
+  status: string
+  issueDate: string
+  isSalaried: boolean | null
+  isDirector: boolean | null
+  isSoleProp: boolean | null
+}
+
+export interface KarzaPanProfileResponse {
+  requestId: string
+  result: KarzaPanProfileResult
+  statusCode: number
+  clientData?: { caseId: string }
+}
+
+export async function panProfile(
+  creds: KarzaCredentials,
+  params: { pan: string; name?: string; dob?: string; caseId?: string }
+): Promise<KarzaPanProfileResponse> {
+  return karzaFetch(creds, '/v3/pan-profile', {
+    pan: params.pan,
+    ...(params.name ? { name: params.name } : {}),
+    ...(params.dob ? { dob: params.dob } : {}),
+    getContactDetails: 'Y',
+    PANStatus: 'Y',
+    isSalaried: 'Y',
+    isDirector: 'Y',
+    isSoleProp: 'Y',
+    consent: 'Y',
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+// ── Employment Verification Advanced ─────────────────────────────────────────
+
+export interface KarzaEmploymentNameLookup {
+  organizationName: string
+  isNameExact: boolean
+  isEmployed: boolean
+  isRecent: boolean
+  employeeName: string
+}
+
+export interface KarzaEmploymentPersonalInfo {
+  name: string
+  dateOfBirth: string
+  gender: string
+  fatherHusbandName: string
+  relation: string   // 'FATHER' | 'HUSBAND' — determines whether fatherHusbandName is the father's name
+  mobileNumber: string
+  pan: string
+}
+
+export interface KarzaEmploymentResult {
+  nameLookup?: KarzaEmploymentNameLookup
+  personalInfo?: KarzaEmploymentPersonalInfo
+  summary?: {
+    nameLookup: { matchName: string; isUnique: boolean; isLatest: boolean; result: boolean }
+    waiveFi: boolean
+  }
+  failures?: unknown[]
+}
+
+export interface KarzaEmploymentResponse {
+  result: KarzaEmploymentResult
+  request_id: string
+  'status-code': string
+  clientData?: { caseId: string }
+}
+
+export async function employmentVerification(
+  creds: KarzaCredentials,
+  params: { pan: string; employeeName?: string; mobile?: string; caseId?: string }
+): Promise<KarzaEmploymentResponse> {
+  return karzaFetch(creds, '/v2/employment-verification-advanced', {
+    pan: params.pan,
+    runPanFlow: true,
+    isLatestEmployer: true,
+    showFailures: false,
+    ...(params.employeeName ? { employeeName: params.employeeName } : {}),
+    ...(params.mobile ? { mobile: params.mobile } : {}),
+    consent: 'Y',
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+// ── Email Verification ────────────────────────────────────────────────────────
+
+export interface KarzaEmailVerificationData {
+  disposable: boolean
+  webmail: boolean
+  result: string
+  accept_all: boolean
+  smtp_check: boolean
+  regexp: boolean
+  mx_records: boolean
+  email: string
+}
+
+export interface KarzaEmailVerificationResultSummary {
+  email_valid: boolean
+  org_domain_match: boolean
+  indv_flag: boolean
+  overall_result: string
+}
+
+export interface KarzaEmailVerificationResult {
+  data: KarzaEmailVerificationData
+  result_summary: KarzaEmailVerificationResultSummary
+}
+
+export interface KarzaEmailVerificationResponse {
+  result: KarzaEmailVerificationResult
+  request_id: string
+  'status-code': string
+  clientData?: { caseId: string }
+}
+
+export async function emailVerification(
+  creds: KarzaCredentials,
+  params: { email: string; individualName?: string; organizationName?: string; caseId?: string }
+): Promise<KarzaEmailVerificationResponse> {
+  return karzaFetch(creds, '/v2/email-verification', {
+    email: params.email,
+    version: '3',
+    consent: 'y',
+    ...(params.individualName ? { individualName: params.individualName } : {}),
+    ...(params.organizationName ? { organizationName: params.organizationName } : {}),
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}
+
+// ── OCR Plus KYC ─────────────────────────────────────────────────────────────
+
+export interface KarzaOcrPlusDocument {
+  documentType: string  // 'PAN' | 'AADHAAR_FRONT' | 'AADHAAR_BACK' | 'AADHAAR_E' | 'AADHAAR_FRONT_TOP' | 'AADHAAR_FRONT_BOTTOM'
+  subType: string
+  pageNo: number
+  ocrData: {
+    name?:    { value: string; confidence: number }
+    dob?:     { value: string; confidence: number }
+    pan?:     { value: string; confidence: number }
+    father?:  { value: string; confidence: number }
+    uid?:     { value: string; confidence: number }
+    gender?:  { value: string; confidence: number }
+    address?: { value: string; confidence: number }
+    pincode?: { value: string; confidence: number }
+    state?:   { value: string; confidence: number }
+    district?: { value: string; confidence: number }
+  }
+  qualityChecks?: Array<{ score: number; flag: boolean; type: string }>
+  tamperCheck?: { score: number; tamperRisk: string; status: string }
+}
+
+export interface KarzaOcrPlusResponse {
+  requestId: string
+  statusCode: number
+  result: { documents: KarzaOcrPlusDocument[] }
+  clientData?: { caseId?: string }
+}
+
+export async function ocrPlusKyc(
+  creds: KarzaCredentials,
+  params: { fileBuffer: Buffer; mimeType: string; applicationId: string }
+): Promise<KarzaOcrPlusResponse> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 60000)
+
+  try {
+    const formData = new FormData()
+    formData.append('file', new Blob([new Uint8Array(params.fileBuffer)], { type: params.mimeType }), 'document')
+    formData.append('requiredOcr', 'true')
+    formData.append('returnQualityChecks', 'true')
+    formData.append('maskAadhaarText', 'EIGHT_DIGITS')
+    formData.append('parseQRdata', 'true')
+    formData.append('tamperDetection', 'true')
+    formData.append('caseId', params.applicationId)
+
+    const res = await fetch(`${creds.base_url}/v3/ocr-plus/kyc`, {
+      method: 'POST',
+      headers: { 'x-karza-key': creds.api_key },
+      body: formData,
+      signal: controller.signal,
+    })
+
+    if (!res.ok) throw new Error(`Karza OCR Plus failed: ${res.status} ${await res.text()}`)
+    return res.json() as Promise<KarzaOcrPlusResponse>
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+// ── Email Fraud Check ─────────────────────────────────────────────────────────
+
+export interface KarzaEmailFraudValidationDetails {
+  statusId: string
+  status: string
+  domainExists: string
+  emailExists?: string
+  domainAge?: string
+}
+
+export interface KarzaEmailFraudRiskDetails {
+  score: string
+  fraudRisk: string
+  adviceId: string
+  advice: string
+  riskBandId: string
+  riskBand: string
+  domainRiskLevelId: string
+  domainRiskLevel: string
+}
+
+export interface KarzaEmailFraudResult {
+  emailAndDomainValidationDetails: KarzaEmailFraudValidationDetails
+  emailAndDomainRiskDetails: KarzaEmailFraudRiskDetails
+}
+
+export interface KarzaEmailFraudResponse {
+  requestId: string
+  result: KarzaEmailFraudResult[]
+  statusCode: number
+  clientData?: { caseId: string }
+}
+
+export async function emailFraud(
+  creds: KarzaCredentials,
+  params: { email: string; firstName?: string; lastName?: string; ipAddress?: string; caseId?: string }
+): Promise<KarzaEmailFraudResponse> {
+  return karzaFetch(creds, '/v3/email-fraud', {
+    email: params.email,
+    consent: 'Y',
+    ...(params.ipAddress ? { ipAddress: params.ipAddress } : {}),
+    ...(params.firstName ? { firstName: params.firstName } : {}),
+    ...(params.lastName ? { lastName: params.lastName } : {}),
+    ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
+  })
+}

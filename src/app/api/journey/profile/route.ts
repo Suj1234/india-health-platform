@@ -4,8 +4,16 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { applications } from '@/lib/db/schema'
 import { getCustomerSession } from '@/lib/auth'
-import { callExternalAPI } from '@/lib/api-router'
+import { callExternalAPI, getInsurerCredentials } from '@/lib/api-router'
 import { mockIAdoreResponse, parseIAdoreResponse } from '@/lib/mock/iadore.mock'
+import { mockKarzaEmailVerification, mockKarzaEmailFraud } from '@/lib/mock/karza.mock'
+import {
+  emailVerification,
+  emailFraud,
+  type KarzaEmailVerificationResponse,
+  type KarzaEmailFraudResponse,
+} from '@/lib/external/karza'
+import type { KarzaCredentials } from '@/types/insurer'
 import { randomUUID } from 'crypto'
 
 const memberSchema = z.object({
@@ -105,6 +113,14 @@ export async function POST(req: NextRequest) {
       jobId: iadoreJobId,
     }).catch((err) => console.error('[profile/route] iAdore trigger failed:', err))
 
+    // Trigger email risk check async (best-effort — result stored for UW review)
+    triggerEmailCheck({
+      applicationId,
+      insurerId: application.insurerId,
+      email,
+      name,
+    }).catch((err) => console.error('[profile/route] Email check trigger failed:', err))
+
     return NextResponse.json({ success: true, iadore_job_id: iadoreJobId, next_step: 3 })
   } catch (err) {
     console.error('[journey/profile] Unexpected error:', err)
@@ -158,6 +174,95 @@ async function triggerIAdore({
       .update(applications)
       .set({ iadoreStatus: 'failed', updatedAt: new Date() })
       .where(eq(applications.id, applicationId))
+  }
+}
+
+// ── Email risk check (disposable + fraud score) ───────────────────────────────
+
+function resolveKarzaCreds(dbCreds: Record<string, unknown> | null): KarzaCredentials {
+  if (dbCreds) return dbCreds as unknown as KarzaCredentials
+  return {
+    base_url: process.env.KARZA_BASE_URL ?? 'https://testapi.karza.in',
+    api_key: process.env.KARZA_API_KEY ?? '',
+  }
+}
+
+interface EmailCheckData {
+  is_disposable: boolean
+  email_valid: boolean
+  overall_result: string
+  fraud_score: number | null
+  fraud_risk: string | null
+  fraud_advice: string | null
+  fraud_advice_id: string | null
+  domain_risk_level: string | null
+  domain_risk_level_id: string | null
+  checked_at: string
+  is_mock: boolean
+}
+
+async function triggerEmailCheck({
+  applicationId,
+  insurerId,
+  email,
+  name,
+}: {
+  applicationId: string
+  insurerId: string
+  email: string
+  name?: string
+}) {
+  try {
+    const nameParts = (name ?? '').trim().split(' ')
+    const firstName = nameParts[0] ?? ''
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''
+    const caseId = applicationId.slice(0, 8)
+
+    const [verifyResult, fraudResult] = await Promise.allSettled([
+      callExternalAPI<KarzaEmailVerificationResponse>({
+        insurerId,
+        apiName: 'karza_email_verify',
+        realFn: async () => {
+          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_email_verify'))
+          return emailVerification(creds, { email, individualName: name, caseId })
+        },
+        mockFn: () => mockKarzaEmailVerification({ email, individualName: name }),
+      }),
+      callExternalAPI<KarzaEmailFraudResponse>({
+        insurerId,
+        apiName: 'karza_email_fraud',
+        realFn: async () => {
+          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_email_fraud'))
+          return emailFraud(creds, { email, firstName, lastName, caseId })
+        },
+        mockFn: () => mockKarzaEmailFraud({ email, firstName, lastName }),
+      }),
+    ])
+
+    const verify = verifyResult.status === 'fulfilled' ? verifyResult.value : null
+    const fraud = fraudResult.status === 'fulfilled' ? fraudResult.value : null
+    const fraudEntry = fraud?.result?.[0] ?? null
+
+    const emailCheckData: EmailCheckData = {
+      is_disposable: verify?.result.data.disposable ?? false,
+      email_valid: verify?.result.result_summary.email_valid ?? true,
+      overall_result: verify?.result.result_summary.overall_result ?? 'unknown',
+      fraud_score: fraudEntry ? parseInt(fraudEntry.emailAndDomainRiskDetails.score, 10) : null,
+      fraud_risk: fraudEntry?.emailAndDomainRiskDetails.fraudRisk ?? null,
+      fraud_advice: fraudEntry?.emailAndDomainRiskDetails.advice ?? null,
+      fraud_advice_id: fraudEntry?.emailAndDomainRiskDetails.adviceId ?? null,
+      domain_risk_level: fraudEntry?.emailAndDomainRiskDetails.domainRiskLevel ?? null,
+      domain_risk_level_id: fraudEntry?.emailAndDomainRiskDetails.domainRiskLevelId ?? null,
+      checked_at: new Date().toISOString(),
+      is_mock: verify === null && fraud === null,
+    }
+
+    await db
+      .update(applications)
+      .set({ emailCheckData: emailCheckData as unknown as Record<string, unknown>, updatedAt: new Date() })
+      .where(eq(applications.id, applicationId))
+  } catch (err) {
+    console.error('[triggerEmailCheck] Failed:', err)
   }
 }
 

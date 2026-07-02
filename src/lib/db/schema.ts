@@ -65,9 +65,10 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 200 }),
   name: varchar('name', { length: 200 }),
   passwordHash: varchar('password_hash', { length: 200 }),
-  role: varchar('role', { length: 20 }).notNull(),
-  insurerId: uuid('insurer_id').references(() => insurers.id, { onDelete: 'set null' }),
+  role: varchar('role', { length: 20 }).notNull(), // 'superadmin' | 'insurer_admin' | 'underwriter' | 'customer'
+  insurerId: uuid('insurer_id').references(() => insurers.id, { onDelete: 'set null' }), // null for superadmin
   isActive: boolean('is_active').notNull().default(true),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(now()),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(now()),
@@ -191,6 +192,11 @@ export const applications = pgTable(
 
     // Mobile enrichment from Karza (Step 1)
     mobileEnrichmentData: jsonb('mobile_enrichment_data'),
+
+    // Email risk check from Karza (fired at Step 2 submit, used in UW review)
+    // Shape: { is_disposable, email_valid, overall_result, fraud_score, fraud_risk,
+    //          fraud_advice, fraud_advice_id, domain_risk_level, domain_risk_level_id, checked_at, is_mock }
+    emailCheckData: jsonb('email_check_data'),
 
     // Metadata
     source: varchar('source', { length: 20 }).notNull().default('web'),
@@ -605,6 +611,106 @@ export const apiCallLogs = pgTable(
 )
 
 // ────────────────────────────────────────────────────────────────────────────
+// TABLE: audit_logs
+// ────────────────────────────────────────────────────────────────────────────
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: uuid('id').primaryKey().$defaultFn(genUuid),
+    insurerId: uuid('insurer_id').references(() => insurers.id),          // null = superadmin action on platform
+    actorUserId: uuid('actor_user_id').notNull().references(() => users.id),
+    actorRole: varchar('actor_role', { length: 20 }).notNull(),
+    impersonationSessionId: uuid('impersonation_session_id'),
+    action: varchar('action', { length: 50 }).notNull(),                  // 'create' | 'update' | 'delete' | 'mode_change' | 'login' | 'impersonate_start' | 'impersonate_end'
+    entityType: varchar('entity_type', { length: 50 }),                   // 'insurer' | 'user' | 'api_credentials' | 'feature_flag' | 'branding' | 'product_config'
+    entityId: uuid('entity_id'),
+    fieldChanged: varchar('field_changed', { length: 100 }),
+    oldValue: text('old_value'),                                          // masked for sensitive fields
+    newValue: text('new_value'),                                          // masked for sensitive fields
+    ipAddress: varchar('ip_address', { length: 45 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(now()),
+  },
+  (t) => ({
+    insurerIdx: index('idx_audit_logs_insurer').on(t.insurerId, t.createdAt),
+    actorIdx: index('idx_audit_logs_actor').on(t.actorUserId, t.createdAt),
+  })
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// TABLE: impersonation_sessions
+// ────────────────────────────────────────────────────────────────────────────
+export const impersonationSessions = pgTable(
+  'impersonation_sessions',
+  {
+    id: uuid('id').primaryKey().$defaultFn(genUuid),
+    superadminUserId: uuid('superadmin_user_id').notNull().references(() => users.id),
+    targetUserId: uuid('target_user_id').notNull().references(() => users.id),
+    insurerId: uuid('insurer_id').notNull().references(() => insurers.id),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().default(now()),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    endReason: varchar('end_reason', { length: 20 }),                     // 'user_exit' | 'expired'
+    ipAddress: varchar('ip_address', { length: 45 }),
+  },
+  (t) => ({
+    superadminIdx: index('idx_impersonation_superadmin').on(t.superadminUserId),
+    insurerIdx: index('idx_impersonation_insurer').on(t.insurerId, t.startedAt),
+  })
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// TABLE: member_documents
+// ────────────────────────────────────────────────────────────────────────────
+export const memberDocuments = pgTable(
+  'member_documents',
+  {
+    id: uuid('id').primaryKey().$defaultFn(genUuid),
+    applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
+    memberId: varchar('member_id', { length: 100 }).notNull(),       // UUID from membersData, or 'proposer'
+    memberRole: varchar('member_role', { length: 30 }),               // 'father' | 'mother' | 'spouse' | 'son' | 'daughter'
+    docType: varchar('doc_type', { length: 20 }).notNull(),           // 'aadhaar' | 'pan'
+    uploadMethod: varchar('upload_method', { length: 20 }).notNull(), // 'manual' | 'digilocker'
+    side: varchar('side', { length: 10 }).notNull(),                  // 'front' | 'back' | 'single'
+    cloudinaryPublicId: varchar('cloudinary_public_id', { length: 300 }),
+    cloudinaryUrl: text('cloudinary_url'),
+    fileName: varchar('file_name', { length: 300 }),
+    fileSizeBytes: integer('file_size_bytes'),
+    mimeType: varchar('mime_type', { length: 100 }),
+    ocrRaw: jsonb('ocr_raw'),
+    ocrName: varchar('ocr_name', { length: 200 }),
+    ocrDob: varchar('ocr_dob', { length: 20 }),
+    ocrDocNumber: varchar('ocr_doc_number', { length: 50 }),          // masked Aadhaar or PAN
+    ocrAddress: jsonb('ocr_address'),
+    validationStatus: varchar('validation_status', { length: 20 }).notNull().default('pending'), // 'pending' | 'match' | 'mismatch'
+    qualityFlags: text('quality_flags').array(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(now()),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(now()),
+  },
+  (t) => ({
+    appIdx: index('idx_member_docs_application').on(t.applicationId),
+    memberIdx: index('idx_member_docs_member').on(t.applicationId, t.memberId),
+  })
+)
+
+// ────────────────────────────────────────────────────────────────────────────
+// TABLE: digilocker_sessions
+// ────────────────────────────────────────────────────────────────────────────
+export const digilockerSessions = pgTable(
+  'digilocker_sessions',
+  {
+    id: uuid('id').primaryKey().$defaultFn(genUuid),
+    applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
+    memberId: varchar('member_id', { length: 100 }).notNull(),
+    requestId: text('request_id').notNull(),    // Perfios requestId returned from /link
+    docType: varchar('doc_type', { length: 10 }).notNull(), // 'ADHAR' | 'PANCR'
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(now()),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    memberIdx: index('idx_digilocker_sessions_member').on(t.applicationId, t.memberId),
+  })
+)
+
+// ────────────────────────────────────────────────────────────────────────────
 // RELATIONS
 // ────────────────────────────────────────────────────────────────────────────
 export const insurersRelations = relations(insurers, ({ many }) => ({
@@ -620,6 +726,8 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   customer: one(users, { fields: [applications.customerId], references: [users.id] }),
   quotes: many(quotes),
   documents: many(documents),
+  memberDocuments: many(memberDocuments),
+  digilockerSessions: many(digilockerSessions),
   idVerifications: many(idVerifications),
   biometricSessions: many(biometricSessions),
   medicalQuestionnaire: one(medicalQuestionnaires, {
@@ -658,3 +766,11 @@ export type UnderwriterAction = typeof underwriterActions.$inferSelect
 export type NewUnderwriterAction = typeof underwriterActions.$inferInsert
 export type EmailLog = typeof emailLogs.$inferSelect
 export type ApiCallLog = typeof apiCallLogs.$inferSelect
+export type AuditLog = typeof auditLogs.$inferSelect
+export type NewAuditLog = typeof auditLogs.$inferInsert
+export type ImpersonationSession = typeof impersonationSessions.$inferSelect
+export type NewImpersonationSession = typeof impersonationSessions.$inferInsert
+export type MemberDocument = typeof memberDocuments.$inferSelect
+export type NewMemberDocument = typeof memberDocuments.$inferInsert
+export type DigilockerSession = typeof digilockerSessions.$inferSelect
+export type NewDigilockerSession = typeof digilockerSessions.$inferInsert

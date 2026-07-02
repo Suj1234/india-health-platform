@@ -7,12 +7,19 @@ export type ExternalApiName =
   | 'iadore_consolidated'
   | 'karza_tkyc'
   | 'karza_ocr'
+  | 'karza_ocr_plus'
   | 'karza_mobile_otp'
+  | 'karza_mobile_prefill'
+  | 'karza_pan_profile'
+  | 'karza_employment'
+  | 'karza_email_verify'
+  | 'karza_email_fraud'
   | 'pmw'
   | 'quotes'
   | 'nuralx'
   | 'pivc'
   | 'stp'
+  | 'perfios_digilocker'
 
 interface CallOptions<T> {
   insurerId: string
@@ -87,8 +94,16 @@ function hasEnvCredentials(apiName: ExternalApiName): boolean {
       return !!(process.env.IADORE_CP_BASE_URL && process.env.IADORE_CP_SECURE_ID)
     case 'karza_tkyc':
     case 'karza_ocr':
+    case 'karza_ocr_plus':
     case 'karza_mobile_otp':
+    case 'karza_mobile_prefill':
+    case 'karza_pan_profile':
+    case 'karza_employment':
+    case 'karza_email_verify':
+    case 'karza_email_fraud':
       return !!(process.env.KARZA_BASE_URL && process.env.KARZA_API_KEY)
+    case 'perfios_digilocker':
+      return !!(process.env.PERFIOS_BASE_URL && process.env.PERFIOS_API_KEY)
     case 'pmw':
       return !!(process.env.PMW_BASE_URL && process.env.PMW_API_KEY)
     case 'quotes':
