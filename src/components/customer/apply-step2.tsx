@@ -477,45 +477,28 @@ export function ApplyStep2() {
                   <div className="space-y-3">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Occupation</p>
                     {occupationLocked ? (
-                      <>
-                        <ReadOnlyField
-                          label="Occupation Type"
-                          value={occupationType === 'salaried' ? 'Salaried' : 'Self-Employed'}
-                        />
-                        {employerName && (
-                          <ReadOnlyField
-                            label={occupationType === 'salaried' ? 'Company Name' : 'Business Name'}
-                            value={employerName}
-                          />
-                        )}
-                      </>
+                      <ReadOnlyField
+                        label="Occupation Type"
+                        value={occupationType === 'salaried' ? 'Salaried' : 'Self-Employed'}
+                      />
                     ) : (
-                      <>
-                        <div className="flex flex-wrap gap-2">
-                          {OCCUPATIONS.map((o) => (
-                            <button
-                              key={o.value}
-                              type="button"
-                              onClick={() => setOccupationType(o.value)}
-                              className={cn(
-                                'rounded-lg border-2 py-1.5 px-3 text-xs font-medium transition-all whitespace-nowrap',
-                                occupationType === o.value
-                                  ? 'border-primary-600 bg-primary-50 text-primary-800'
-                                  : 'border-border text-muted-foreground hover:border-primary-300'
-                              )}
-                            >
-                              {o.label}
-                            </button>
-                          ))}
-                        </div>
-                        {(occupationType === 'salaried' || occupationType === 'self_employed') && (
-                          <Input
-                            label={occupationType === 'salaried' ? 'Company Name' : 'Business Name'}
-                            value={employerName}
-                            onChange={(e) => setEmployerName(e.target.value)}
-                          />
-                        )}
-                      </>
+                      <div className="flex flex-wrap gap-2">
+                        {OCCUPATIONS.map((o) => (
+                          <button
+                            key={o.value}
+                            type="button"
+                            onClick={() => setOccupationType(o.value)}
+                            className={cn(
+                              'rounded-lg border-2 py-1.5 px-3 text-xs font-medium transition-all whitespace-nowrap',
+                              occupationType === o.value
+                                ? 'border-primary-600 bg-primary-50 text-primary-800'
+                                : 'border-border text-muted-foreground hover:border-primary-300'
+                            )}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

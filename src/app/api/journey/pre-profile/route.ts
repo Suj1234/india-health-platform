@@ -8,15 +8,12 @@ import { callExternalAPI, getInsurerCredentials } from '@/lib/api-router'
 import {
   mobilePrefill,
   panProfile,
-  employmentVerification,
   type KarzaMobilePrefillResponse,
   type KarzaPanProfileResponse,
-  type KarzaEmploymentResponse,
 } from '@/lib/external/karza'
 import {
   mockKarzaMobilePrefill,
   mockKarzaPanProfile,
-  mockKarzaEmploymentVerification,
 } from '@/lib/mock/karza.mock'
 import type { IAdorePrefillData } from '@/lib/external/iadore'
 import type { KarzaCredentials } from '@/types/insurer'
@@ -38,19 +35,9 @@ function mapGender(raw: string): 'male' | 'female' | 'other' {
   return 'other'
 }
 
-function resolveFatherName(
-  personalInfo: import('@/lib/external/karza').KarzaEmploymentPersonalInfo | undefined,
-): string | null {
-  if (!personalInfo?.fatherHusbandName) return null
-  const relation = (personalInfo.relation ?? '').toUpperCase().trim()
-  // Only use the name when it is explicitly the father's, not the husband's
-  return relation === 'FATHER' || relation === '' ? personalInfo.fatherHusbandName : null
-}
-
 function buildProfile(
   prefill: KarzaMobilePrefillResponse,
   panData: KarzaPanProfileResponse | null,
-  employment: KarzaEmploymentResponse | null,
   overridePan?: string,
 ): IAdorePrefillData {
   const pr = prefill.result
@@ -82,9 +69,9 @@ function buildProfile(
     state,
     pincode,
     occupation_type: occupationType,
-    employer_name: employment?.result.nameLookup?.organizationName ?? null,
+    employer_name: null,
     hazardous_occupation: null,
-    father_name: resolveFatherName(employment?.result.personalInfo),
+    father_name: null,
   }
 }
 
@@ -141,32 +128,18 @@ export async function GET(_req: NextRequest): Promise<NextResponse<PreProfileRes
     const name = prefillResponse.result.panDetails.fullName
     const dob = prefillResponse.result.panDetails.dob
 
-    // Step 2: enrich with pan-profile + employment in parallel
-    const [panResult, employmentResult] = await Promise.allSettled([
-      callExternalAPI<KarzaPanProfileResponse>({
-        insurerId,
-        apiName: 'karza_pan_profile',
-        realFn: async () => {
-          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_pan_profile'))
-          return panProfile(creds, { pan, name, dob, caseId })
-        },
-        mockFn: () => mockKarzaPanProfile({ pan, name, dob }),
-      }),
-      callExternalAPI<KarzaEmploymentResponse>({
-        insurerId,
-        apiName: 'karza_employment',
-        realFn: async () => {
-          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_employment'))
-          return employmentVerification(creds, { pan, employeeName: name, mobile, caseId })
-        },
-        mockFn: () => mockKarzaEmploymentVerification({ pan, employeeName: name, mobile }),
-      }),
-    ])
+    // Step 2: enrich with pan-profile (employment removed — too slow from Vercel US-East)
+    const panData = await callExternalAPI<KarzaPanProfileResponse>({
+      insurerId,
+      apiName: 'karza_pan_profile',
+      realFn: async () => {
+        const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_pan_profile'))
+        return panProfile(creds, { pan, name, dob, caseId })
+      },
+      mockFn: () => mockKarzaPanProfile({ pan, name, dob }),
+    }).catch(() => null)
 
-    const panData = panResult.status === 'fulfilled' ? panResult.value : null
-    const employmentData = employmentResult.status === 'fulfilled' ? employmentResult.value : null
-
-    const profile = buildProfile(prefillResponse, panData, employmentData)
+    const profile = buildProfile(prefillResponse, panData)
 
     return NextResponse.json({ success: true, status: 'done', profile })
   } catch (err) {
@@ -211,30 +184,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<PreProfileRes
     const { mobile, insurerId } = application
     const caseId = session.application_id.slice(0, 8)
 
-    // Enrich the manually-entered PAN via pan-profile + employment in parallel
-    const [panResult, employmentResult] = await Promise.allSettled([
-      callExternalAPI<KarzaPanProfileResponse>({
-        insurerId,
-        apiName: 'karza_pan_profile',
-        realFn: async () => {
-          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_pan_profile'))
-          return panProfile(creds, { pan, caseId })
-        },
-        mockFn: () => mockKarzaPanProfile({ pan }),
-      }),
-      callExternalAPI<KarzaEmploymentResponse>({
-        insurerId,
-        apiName: 'karza_employment',
-        realFn: async () => {
-          const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_employment'))
-          return employmentVerification(creds, { pan, mobile, caseId })
-        },
-        mockFn: () => mockKarzaEmploymentVerification({ pan, mobile }),
-      }),
-    ])
-
-    const panData = panResult.status === 'fulfilled' ? panResult.value : null
-    const employmentData = employmentResult.status === 'fulfilled' ? employmentResult.value : null
+    // Enrich the manually-entered PAN via pan-profile (employment removed — too slow from Vercel US-East)
+    const panData = await callExternalAPI<KarzaPanProfileResponse>({
+      insurerId,
+      apiName: 'karza_pan_profile',
+      realFn: async () => {
+        const creds = resolveKarzaCreds(await getInsurerCredentials(insurerId, 'karza_pan_profile'))
+        return panProfile(creds, { pan, caseId })
+      },
+      mockFn: () => mockKarzaPanProfile({ pan }),
+    }).catch(() => null)
 
     // Build a minimal prefill shell with the manually supplied PAN
     const syntheticPrefill: KarzaMobilePrefillResponse = {
@@ -254,7 +213,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<PreProfileRes
       },
     }
 
-    const profile = buildProfile(syntheticPrefill, panData, employmentData, pan)
+    const profile = buildProfile(syntheticPrefill, panData, pan)
 
     return NextResponse.json({ success: true, status: 'done', profile })
   } catch (err) {
