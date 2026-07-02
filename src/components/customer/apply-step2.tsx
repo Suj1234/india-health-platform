@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight, CheckCircle2, CreditCard, Lock,
@@ -96,6 +96,7 @@ const COVER_TYPES: {
 
 export function ApplyStep2() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
 
   const [contentPhase, setContentPhase] = useState<ContentPhase>('loading')
 
@@ -119,7 +120,7 @@ export function ApplyStep2() {
   const [pincode, setPincode] = useState('')
   const [occupationType, setOccupationType] = useState('')
   const [employerName, setEmployerName] = useState('')
-  const [hazardousOccupation, setHazardousOccupation] = useState<string | null>(null)
+  const [occupationLocked, setOccupationLocked] = useState(false)
 
   // Cover type + members
   const [coverType, setCoverType] = useState<CoverType | null>(null)
@@ -142,7 +143,7 @@ export function ApplyStep2() {
     setPincode(profile.pincode)
     setOccupationType(profile.occupation_type)
     setEmployerName(profile.employer_name ?? '')
-    setHazardousOccupation(profile.hazardous_occupation)
+    if (profile.occupation_type) setOccupationLocked(true)
     setContentPhase('identity')
   }, [])
 
@@ -302,19 +303,18 @@ export function ApplyStep2() {
           pincode,
           occupation_type: occupationType,
           employer_name: employerName || undefined,
-          hazardous_occupation: hazardousOccupation || undefined,
           cover_type: ct,
           members: insuredMembers,
         }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      router.push('/apply/3')
+      router.push(`/i/${slug}/apply/3`)
     } catch (err) {
       setMembersError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setSubmitLoading(false)
     }
-  }, [details, email, addressLine, city, state, pincode, occupationType, employerName, hazardousOccupation, router])
+  }, [details, email, addressLine, city, state, pincode, occupationType, employerName, router])
 
   // ── Member helpers ─────────────────────────────────────────────────────────
   const addSpouse = () => {
@@ -476,32 +476,46 @@ export function ApplyStep2() {
 
                   <div className="space-y-3">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Occupation</p>
-                    <div className="flex flex-wrap gap-2">
-                      {OCCUPATIONS.map((o) => (
-                        <button
-                          key={o.value}
-                          type="button"
-                          onClick={() => setOccupationType(o.value)}
-                          className={cn(
-                            'rounded-lg border-2 py-1.5 px-3 text-xs font-medium transition-all whitespace-nowrap',
-                            occupationType === o.value
-                              ? 'border-primary-600 bg-primary-50 text-primary-800'
-                              : 'border-border text-muted-foreground hover:border-primary-300'
-                          )}
-                        >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
-                    {(occupationType === 'salaried' || occupationType === 'self_employed') && (
-                      <Input
-                        label={occupationType === 'salaried' ? 'Company Name' : 'Business Name'}
-                        value={employerName}
-                        onChange={(e) => setEmployerName(e.target.value)}
-                      />
-                    )}
-                    {occupationType && (
-                      <ReadOnlyField label="Hazardous Occupation" value={hazardousOccupation ?? 'None'} />
+                    {occupationLocked ? (
+                      <>
+                        <ReadOnlyField
+                          label="Occupation Type"
+                          value={occupationType === 'salaried' ? 'Salaried' : 'Self-Employed'}
+                        />
+                        {employerName && (
+                          <ReadOnlyField
+                            label={occupationType === 'salaried' ? 'Company Name' : 'Business Name'}
+                            value={employerName}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {OCCUPATIONS.map((o) => (
+                            <button
+                              key={o.value}
+                              type="button"
+                              onClick={() => setOccupationType(o.value)}
+                              className={cn(
+                                'rounded-lg border-2 py-1.5 px-3 text-xs font-medium transition-all whitespace-nowrap',
+                                occupationType === o.value
+                                  ? 'border-primary-600 bg-primary-50 text-primary-800'
+                                  : 'border-border text-muted-foreground hover:border-primary-300'
+                              )}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                        {(occupationType === 'salaried' || occupationType === 'self_employed') && (
+                          <Input
+                            label={occupationType === 'salaried' ? 'Company Name' : 'Business Name'}
+                            value={employerName}
+                            onChange={(e) => setEmployerName(e.target.value)}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

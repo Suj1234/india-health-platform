@@ -10,9 +10,9 @@ function karzaHeaders(creds: KarzaCredentials): HeadersInit {
   }
 }
 
-async function karzaFetch<T>(creds: KarzaCredentials, path: string, body: object): Promise<T> {
+async function karzaFetch<T>(creds: KarzaCredentials, path: string, body: object, timeoutMs = 30000): Promise<T> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const res = await fetch(`${creds.base_url}${path}`, {
@@ -321,7 +321,7 @@ export async function employmentVerification(
     ...(params.mobile ? { mobile: params.mobile } : {}),
     consent: 'Y',
     ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
-  })
+  }, 50000)
 }
 
 // ── Email Verification ────────────────────────────────────────────────────────
