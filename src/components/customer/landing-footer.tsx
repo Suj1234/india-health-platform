@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { Shield, Phone, Mail, MapPin, ExternalLink } from 'lucide-react'
 
 const PRODUCT_LINKS = [
@@ -9,23 +12,25 @@ const PRODUCT_LINKS = [
   { label: 'Claim Process', href: '#' },
 ]
 
-const LEGAL_LINKS = [
-  { label: 'Privacy Policy', href: '/privacy' },
-  { label: 'Terms & Conditions', href: '/terms' },
-  { label: 'Refund Policy', href: '/refund' },
-  { label: 'Grievance Redressal', href: '/grievance' },
-  { label: 'IRDAI Disclosures', href: '/irdai-disclosures' },
-]
-
-const SUPPORT_LINKS = [
-  { label: 'FAQs', href: '#faq' },
-  { label: 'Track Application', href: '/track' },
-  { label: 'Download Policy', href: '/policy' },
-  { label: 'Submit Claim', href: '#' },
-  { label: 'Agent Login', href: '/agent/login' },
-]
-
 export function LandingFooter() {
+  const { slug } = useParams<{ slug: string }>()
+
+  const LEGAL_LINKS = [
+    { label: 'Privacy Policy', href: `/i/${slug}/privacy` },
+    { label: 'Terms & Conditions', href: `/i/${slug}/terms` },
+    { label: 'Refund Policy', href: '#' },
+    { label: 'Grievance Redressal', href: '#' },
+    { label: 'IRDAI Disclosures', href: '#' },
+  ]
+
+  const SUPPORT_LINKS = [
+    { label: 'FAQs', href: '#faq' },
+    { label: 'Track Application', href: '#' },
+    { label: 'Download Policy', href: `/i/${slug}/policy` },
+    { label: 'Submit Claim', href: '#' },
+    { label: 'Agent Login', href: '#' },
+  ]
+
   return (
     <footer className="bg-foreground text-white/70">
       {/* Main footer */}
@@ -165,7 +170,7 @@ export function LandingFooter() {
             <Link href="/underwriter/login" className="text-xs text-white/30 hover:text-white/50 transition-colors">
               Underwriter Portal
             </Link>
-            <Link href="/admin/login" className="text-xs text-white/30 hover:text-white/50 transition-colors">
+            <Link href={`/i/${slug}/admin/login`} className="text-xs text-white/30 hover:text-white/50 transition-colors">
               Admin
             </Link>
           </div>

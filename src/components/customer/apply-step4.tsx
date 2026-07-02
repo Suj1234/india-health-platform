@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, Check, Clock, Info, Shield, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -165,6 +165,7 @@ function formatINR(v: number) {
 
 export function ApplyStep4() {
   const router = useRouter()
+  const { slug } = useParams<{ slug: string }>()
 
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(true)
@@ -248,7 +249,7 @@ export function ApplyStep4() {
     } finally {
       setLoading(false)
     }
-    router.push('/apply/5')
+    router.push(`/i/${slug}/apply/5`)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
