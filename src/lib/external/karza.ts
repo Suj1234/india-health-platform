@@ -321,7 +321,7 @@ export async function employmentVerification(
     ...(params.mobile ? { mobile: params.mobile } : {}),
     consent: 'Y',
     ...(params.caseId ? { clientData: { caseId: params.caseId } } : {}),
-  }, 50000)
+  }, 70000)
 }
 
 // ── Email Verification ────────────────────────────────────────────────────────
